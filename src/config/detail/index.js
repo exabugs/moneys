@@ -3,8 +3,7 @@ import moment from 'moment';
 
 import groups from './groups.json';
 import users from './users.json';
-import tokens from './tokens.json';
-import queues from './queues.json';
+import sessions from './sessions.json';
 import files from './files.json';
 
 import common from './_common.json';
@@ -13,8 +12,7 @@ const config = {
   modules: {
     groups,
     users,
-    tokens,
-    queues,
+    sessions,
     files,
   },
 };

@@ -131,8 +131,8 @@ const router = express.Router('/survey');
 
 app.use(CONTEXT_SURVEY, router);
 
-const createHmac = (algorithm, key, str) => {
-  return str ? crypto.createHmac(algorithm, key).update(str).digest('hex') : '';
+const createHmac = (str) => {
+  return str ? crypto.createHmac('sha256', 'smartcore').update(str).digest('hex') : '';
 };
 
 // 認証
@@ -141,7 +141,7 @@ const authUser = (userName, pass, clientKey, callback) => {
   const authe = db.db(dbMaster).collection('passwords');
   const users = db.db(dbMaster).collection('users');
   const client = { key: clientKey };
-  const password = createHmac('sha256', 'smartcore', pass);
+  const password = createHmac(pass);
   authe.findOne({ userName }, (err, authe) => {
     if (err) {
       callback(err);
@@ -236,12 +236,23 @@ if (!process.env.AWS_BUCKET) {
           console.log(err);
         } else {
           appGlobal.db = db;
+          const master = db.db(dbMaster);
 
           // session
-          session.sessions = db.db(dbMaster).collection('sessions');
+          session.sessions = master.collection('sessions');
 
-          // index
-          db.db(dbMaster).collection('venues').ensureIndex({ location: '2dsphere' });
+          // 管理者アカウント
+          const userName = 'admin';
+          const _id = ObjectId('000000000000000000000000');
+          const root = { _id };
+          const upsert = { upsert: true };
+          const password = createHmac('daadmin');
+          master.collection('users').updateOne(root,
+            { $setOnInsert: { userName, primaryGroup: root } }, upsert);
+          master.collection('passwords').updateOne({ userName },
+            { $setOnInsert: { password } }, upsert);
+          master.collection('groups').updateOne(root,
+            { $setOnInsert: { name: 'root', ancestors: [_id] } }, upsert);
 
           app.listen(process.env.PORT, () => {
             console.log(`Example app listening on port ${process.env.PORT}!`);
@@ -286,15 +297,12 @@ function handler(collname) {
     const coll = db.collection(collname);
     const fieldDefs = list_config.config.modules[collname];
 
-    let nearV24 = false;
     let field = 'owner.';
     (collname === 'groups') && (field = '');
     (collname === 'users') && (field = 'primaryGroup.');
     if (collname === 'venues') {
       field = 'group.';
-      nearV24 = true;
     }
-    (collname === 'holdevents') && (field = 'group.');
 
     const params = {
       skip: number(req.query.skip, 0),
@@ -348,20 +356,13 @@ function handler(collname) {
         if (owner && ownerCond) {
           const groups = db.collection('groups');
           groups.findOne({ _id: ObjectId(owner) }, (err, group) => {
-
-            if (nearV24) {
-              // Mongo2.4 では $near と $and/$or が併用できない
-              // 下位のみ権限チェック
-              cond[0][`${field}ancestors`] = { $in: [group._id] };
-            } else {
-              // Y字型の権限チェック
-              cond.push({
-                $or: [
-                  { [`${field}ancestors`]: { $in: [group._id] } }, // 下位
-                  { [`${field}_id`]: { $in: group.ancestors } }, // 上位
-                ],
-              });
-            }
+            // Y字型の権限チェック
+            cond.push({
+              $or: [
+                { [`${field}ancestors`]: { $in: [group._id] } }, // 下位
+                { [`${field}_id`]: { $in: group.ancestors } }, // 上位
+              ],
+            });
             next(err);
           });
         } else {

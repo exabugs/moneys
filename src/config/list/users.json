@@ -51,11 +51,6 @@
       "key": "valid"
     },
     {
-      "width": 20,
-      "align": "center",
-      "key": "extend.active"
-    },
-    {
       "width": 100,
       "common": "datetime",
       "key": "updatedAt"

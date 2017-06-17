@@ -1,5 +1,5 @@
 {
-  "collection": "tokens",
+  "collection": "sessions",
   "fieldDefs": [
     {
       "type": "TextField",

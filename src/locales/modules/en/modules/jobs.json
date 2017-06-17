@@ -1,8 +1,0 @@
-{
-  "type": "タイプ",
-  "description": "説明",
-  "environment": "実行環境",
-  "cron": "クーロン設定",
-  "subsequent": "後続処理",
-  "next": "次回実行日時"
-}

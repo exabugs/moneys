@@ -1,5 +1,5 @@
 {
-  "collection": "tokens",
+  "collection": "sessions",
   "sort": [
     [
       "updatedAt",
@@ -26,7 +26,7 @@
     },
     {
       "width": 400,
-      "key": "token"
+      "key": "_id"
     },
     {
       "width": 100,

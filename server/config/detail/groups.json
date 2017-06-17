@@ -20,16 +20,6 @@
     },
     {
       "array": true,
-      "type": "TextField",
-      "key": "addresses"
-    },
-    {
-      "array": true,
-      "common": "group_name",
-      "key": "siblings"
-    },
-    {
-      "array": true,
       "common": "user",
       "key": "ownerUsers"
     },
