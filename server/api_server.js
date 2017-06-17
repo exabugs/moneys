@@ -25,12 +25,10 @@ const s3 = new aws.S3({ credentialProvider });
 
 const dbMaster = 'master';
 
-const Session = require('./lib/session');
+const sessions = require('./lib/sessions');
 
 const module_config = require('./config/module_config');
 const list_config = require('./config/list_config');
-
-const session = new Session();
 
 const app = express();
 
@@ -115,7 +113,7 @@ app.use(CONTEXT, (req, res, next) => {
     next();
   } else {
     const { authorization } = req.headers;
-    session.verify(authorization).then((result) => {
+    appGlobal.sessions.verify(authorization).then((result) => {
       result.source = (req.headers['x-forwarded-for'] || '').split(',');
       req.session = result;
       console.log(JSON.stringify(result));
@@ -127,14 +125,14 @@ app.use(CONTEXT, (req, res, next) => {
 });
 
 // エラーハンドリング
-app.use(CONTEXT, Session.handleError);
+app.use(CONTEXT, sessions.handleError);
 
 const router = express.Router('/survey');
 
 app.use(CONTEXT, router);
 
 const createHmac = (str) => {
-  return str ? crypto.createHmac('sha256', 'smartcore').update(str).digest('hex') : '';
+  return str ? crypto.createHmac('sha256', 'exabugs').update(str).digest('hex') : '';
 };
 
 // 認証
@@ -159,7 +157,7 @@ const authUser = (userName, pass, clientKey, callback) => {
           callback({ status: 404 });
         } else {
           // セッション生成
-          session.create(user, client).then((token) => {
+          appGlobal.sessions.create(user, client).then((token) => {
             Object.assign(token, user);
             callback(null, token);
           }).catch((err2) => {
@@ -241,7 +239,7 @@ if (!process.env.AWS_BUCKET) {
           appGlobal.db = db;
 
           // session
-          session.sessions = db.collection('sessions');
+          appGlobal.sessions = new sessions(db.collection('sessions'));
 
           // 管理者アカウント
           const userName = 'admin';
