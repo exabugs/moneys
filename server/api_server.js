@@ -17,6 +17,7 @@ process.env.HOST = process.env.HOST || 'exabugs.k2s.io';
 process.env.PORT = process.env.PORT || 8007;
 process.env.AWS_REGION = process.env.AWS_REGION || 'ap-northeast-1';
 process.env.AWS_BUCKET = process.env.AWS_BUCKET || 'jp.co.dreamarts.exabugs';
+process.env.DB_NAME = process.env.DB_NAME || 'master';
 
 const credentialProvider = new aws.CredentialProviderChain();
 const cognitoidentity = new aws.CognitoIdentity({ credentialProvider });
@@ -52,6 +53,7 @@ app.use(morgan('dev'));
 
  */
 
+const values = (array, key) => array.map(a => a[key]);
 
 app.get('/', (req, res) => {
   res.send('Hello World!');
@@ -100,10 +102,10 @@ app.get('/geocodes/:id', (req, res) => {
 
 
 // BaseURL
-const CONTEXT_SURVEY = '/survey';
+const CONTEXT = '/admin';
 
 // トークンチェック
-app.use(CONTEXT_SURVEY, (req, res, next) => {
+app.use(CONTEXT, (req, res, next) => {
   console.log(JSON.stringify(req.headers));
 
   const whitelist = [
@@ -125,11 +127,11 @@ app.use(CONTEXT_SURVEY, (req, res, next) => {
 });
 
 // エラーハンドリング
-app.use(CONTEXT_SURVEY, Session.handleError);
+app.use(CONTEXT, Session.handleError);
 
 const router = express.Router('/survey');
 
-app.use(CONTEXT_SURVEY, router);
+app.use(CONTEXT, router);
 
 const createHmac = (str) => {
   return str ? crypto.createHmac('sha256', 'smartcore').update(str).digest('hex') : '';
@@ -138,8 +140,8 @@ const createHmac = (str) => {
 // 認証
 const authUser = (userName, pass, clientKey, callback) => {
   const db = appGlobal.db;
-  const authe = db.db(dbMaster).collection('passwords');
-  const users = db.db(dbMaster).collection('users');
+  const authe = db.collection('passwords');
+  const users = db.collection('users');
   const client = { key: clientKey };
   const password = createHmac(pass);
   authe.findOne({ userName }, (err, authe) => {
@@ -235,24 +237,25 @@ if (!process.env.AWS_BUCKET) {
         if (err) {
           console.log(err);
         } else {
+          db = db.db(dbMaster);
           appGlobal.db = db;
-          const master = db.db(dbMaster);
 
           // session
-          session.sessions = master.collection('sessions');
+          session.sessions = db.collection('sessions');
 
           // 管理者アカウント
           const userName = 'admin';
           const _id = ObjectId('000000000000000000000000');
-          const root = { _id };
+          // const root = { _id };
           const upsert = { upsert: true };
           const password = createHmac('daadmin');
-          master.collection('users').updateOne(root,
-            { $setOnInsert: { userName, primaryGroup: root } }, upsert);
-          master.collection('passwords').updateOne({ userName },
+          const name = 'root';
+          db.collection('users').updateOne(root,
+            { $setOnInsert: { userName, primaryGroup: { _id, name } } }, upsert);
+          db.collection('passwords').updateOne({ userName },
             { $setOnInsert: { password } }, upsert);
-          master.collection('groups').updateOne(root,
-            { $setOnInsert: { name: 'root', ancestors: [_id] } }, upsert);
+          db.collection('groups').updateOne({ _id },
+            { $setOnInsert: { name, ancestors: [{ _id, name }] } }, upsert);
 
           app.listen(process.env.PORT, () => {
             console.log(`Example app listening on port ${process.env.PORT}!`);
@@ -293,7 +296,7 @@ const flatten = (obj, keys) => {
 
 function handler(collname) {
   return (req, res) => {
-    const db = appGlobal.db.db(dbMaster);
+    const db = appGlobal.db;
     const coll = db.collection(collname);
     const fieldDefs = list_config.config.modules[collname];
 
@@ -357,10 +360,11 @@ function handler(collname) {
           const groups = db.collection('groups');
           groups.findOne({ _id: ObjectId(owner) }, (err, group) => {
             // Y字型の権限チェック
+            const ancestors = values(group.ancestors, '_id');
             cond.push({
               $or: [
-                { [`${field}ancestors`]: { $in: [group._id] } }, // 下位
-                { [`${field}_id`]: { $in: group.ancestors } }, // 上位
+                { [`${field}ancestors._id`]: { $in: [group._id] } }, // 下位
+                { [`${field}_id`]: { $in: ancestors } }, // 上位
               ],
             });
             next(err);
@@ -399,7 +403,7 @@ list_colls.forEach((col) => {
 
 function handlerOne(collname) {
   return (req, res) => {
-    const db = appGlobal.db.db(dbMaster);
+    const db = appGlobal.db;
     const coll = db.collection(collname);
 
     const id = req.params.id;
@@ -441,7 +445,7 @@ function setInitial(obj, ini, key, value) {
 // todo: insert か update か、よく考える。
 // upsert:true は 危険
 function update(user, collname, data, id, callback) {
-  const db = appGlobal.db.db(dbMaster);
+  const db = appGlobal.db;
   const coll = db.collection(collname);
 
   const fieldsDef = module_config.config.modules[collname];
@@ -497,7 +501,7 @@ function handlerUpdate(collname) {
 }
 
 function remove(user, collname, id, callback) {
-  const db = appGlobal.db.db(dbMaster);
+  const db = appGlobal.db;
   const coll = db.collection(collname);
 
   async.waterfall([
@@ -541,7 +545,8 @@ module_colls.forEach((col) => {
 function breadcrumbs(coll, _id, cond, option, callback) {
   coll.findOne(_.extend({ _id }, cond), (err, obj) => {
     if (obj) {
-      const infos = obj.ancestors.concat(_id).reduce((memo, group) => {
+      const ids = values(obj.ancestors, '_id').concat(_id);
+      const infos = ids.reduce((memo, group) => {
         memo.push({
           parent: memo.length ? memo[memo.length - 1]._id : null,
           _id: group,
@@ -578,7 +583,7 @@ router.get('/breadcrumbs/:coll/:_id', (req, res) => {
   }
   const collname = req.params.coll;
   const _id = new ObjectId(req.params._id);
-  const db = appGlobal.db.db(dbMaster);
+  const db = appGlobal.db;
   const coll = db.collection(collname);
 
   breadcrumbs(coll, _id, cond, option, (err, items) => {
@@ -638,7 +643,7 @@ router.get('/download/**', (req, res) => {
 
   const _id = new ObjectId(id);
 
-  const filemetas = appGlobal.db.db(dbMaster).collection('filemetas');
+  const filemetas = appGlobal.db.collection('files');
   filemetas.findOne({ _id }, (err, filemeta) => {
 
     if (err) {
