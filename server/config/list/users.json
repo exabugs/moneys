@@ -1,0 +1,64 @@
+{
+  "collection": "users",
+  "sort": [
+    [
+      "primaryGroup.depth",
+      -1
+    ],
+    [
+      "primaryGroup.outerId",
+      1
+    ],
+    [
+      "userName",
+      1
+    ]
+  ],
+  "search": [
+    {
+      "type": "owner",
+      "key": "primaryGroup"
+    },
+    {
+      "common": "fullsearch"
+    }
+  ],
+  "fields": [
+    {
+      "width": 80,
+      "title": "primaryGroup",
+      "key": "primaryGroup.name"
+    },
+    {
+      "width": 80,
+      "key": "name"
+    },
+    {
+      "width": 80,
+      "key": "userName"
+    },
+    {
+      "width": 20,
+      "key": "order"
+    },
+    {
+      "width": 100,
+      "key": "email"
+    },
+    {
+      "width": 20,
+      "common": "valid",
+      "key": "valid"
+    },
+    {
+      "width": 20,
+      "align": "center",
+      "key": "extend.active"
+    },
+    {
+      "width": 100,
+      "common": "datetime",
+      "key": "updatedAt"
+    }
+  ]
+}

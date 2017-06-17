@@ -1,0 +1,20 @@
+{
+  "owner": "オーナー",
+  "group": "主催",
+  "owners": "共同開催",
+  "fixedAnswer": "定形質問",
+  "answer": "質問",
+  "event": "イベント",
+  "venue": "会場",
+  "hold": "開催情報",
+  "holdSurvey": "テンプレート",
+  "customer": "顧客",
+  "feedback": "フィードバック",
+  "answerCreatedDate": "回答日時",
+  "answerDate": "登録日時",
+  "values": "回答",
+  "otherValues": "その他回答",
+  "updatedAt": "更新日時",
+  "createdBy": "作成者",
+  "updatedBy": "更新者"
+}

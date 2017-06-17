@@ -1,0 +1,9 @@
+{
+  "owner": "オーナー",
+  "length": "サイズ",
+  "name": "ファイル名",
+  "contentType": "コンテントタイプ",
+  "createdBy": "作成者",
+  "file": "ファイル",
+  "createdAt": "作成日時"
+}

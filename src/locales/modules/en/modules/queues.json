@@ -1,0 +1,20 @@
+{
+  "apServerId": "要求サーバ",
+  "queueServerId": "処理サーバ",
+  "status": "ステータス",
+  "type": "タイプ",
+  "source": "ソース",
+  "group": "グループ",
+  "password": "パスワード",
+  "event": "イベント",
+  "output": "アウトプット",
+  "file": "ファイル",
+  "owner": "組織",
+  "createdOn": "受付日時",
+  "startTime": "開始日時",
+  "endTime": "終了日時",
+  "file": "結果ファイル",
+  "duration": "処理時間",
+  "next": "次回実行日時",
+  "createdBy": "作成者"
+}

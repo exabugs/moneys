@@ -1,0 +1,53 @@
+{
+  "collection": "groups",
+  "fieldDefs": [
+    {
+      "common": "group",
+      "key": "parent"
+    },
+    {
+      "type": "TextField",
+      "key": "name"
+    },
+    {
+      "type": "TextField",
+      "key": "outerId"
+    },
+    {
+      "type": "SelectField",
+      "itemsKey": "groupKind",
+      "key": "kind"
+    },
+    {
+      "array": true,
+      "type": "TextField",
+      "key": "addresses"
+    },
+    {
+      "array": true,
+      "common": "group_name",
+      "key": "siblings"
+    },
+    {
+      "array": true,
+      "common": "user",
+      "key": "ownerUsers"
+    },
+    {
+      "common": "valid",
+      "key": "valid"
+    },
+    {
+      "array": true,
+      "visible": false,
+      "type": "ObjectId",
+      "key": "ancestors"
+    },
+    {
+      "array": true,
+      "visible": false,
+      "type": "TextField",
+      "key": "ancestors_name"
+    }
+  ]
+}

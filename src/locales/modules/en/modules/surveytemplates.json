@@ -1,0 +1,16 @@
+{
+  "type": "タイプ",
+  "owner": "オーナー",
+  "name": "名称",
+  "plan": "プラン",
+  "planText": "プラン内容",
+  "product": "商材",
+  "comment": "コメント",
+  "updatedAt": "更新日時",
+  "pages": "ページ",
+  "title": "タイトル",
+  "questions": "質問",
+  "fixed": "固定質問",
+  "backgroundImage": "背景画像",
+  "style": "スタイル"
+}

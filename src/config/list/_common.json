@@ -1,0 +1,33 @@
+{
+  "fullsearch": {
+    "type": "TextField",
+    "title": "fullsearch",
+    "collection": "_common",
+    "key": "__keywords.w"
+  },
+  "location": {
+    "type": "Location",
+    "collection": "_common",
+    "key": "location"
+  },
+  "datetime": {
+    "align": "center",
+    "type": "Date",
+    "format": "YYYY-MM-DD HH:mm"
+  },
+  "timestamp": {
+    "align": "center",
+    "type": "Date",
+    "format": "MM-DD HH:mm:ss"
+  },
+  "valid": {
+    "align": "center",
+    "collection": "_common",
+    "itemsKey": "valid"
+  },
+  "download": {
+    "align": "center",
+    "type": "download"
+  }
+}
+

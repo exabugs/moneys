@@ -1,0 +1,16 @@
+{
+  "rank": "ランク",
+  "services": "サービス",
+  "mobile": "モバイル",
+  "followType":"後追い種別",
+  "followStartTime":"後追い開始日時",
+  "followEndTime":"後追い終了日時",
+  "comment":"備考",
+  "age": "年齢",
+  "gender": "性別",
+  "feature": "ガラホ",
+  "smart": "スマホ",
+  "iPhone": "iPhone",
+  "SIM": "SIM",
+  "au": "au"
+}

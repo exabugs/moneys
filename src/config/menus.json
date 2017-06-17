@@ -1,0 +1,37 @@
+[
+  {
+    "link": "/home",
+    "text": "home",
+    "icon": "action/home"
+  },
+  {
+    "link": "/modules/groups",
+    "text": "groups",
+    "icon": "communication/comment"
+  },
+  {
+    "link": "/modules/users",
+    "text": "users",
+    "icon": "communication/comment"
+  },
+  {
+    "link": "/modules/files",
+    "text": "files",
+    "icon": "communication/comment"
+  },
+  {
+    "link": "/modules/tokens",
+    "text": "tokens",
+    "icon": "communication/comment"
+  },
+  {
+    "link": "/modules/queues",
+    "text": "queues",
+    "icon": "communication/comment"
+  },
+  {
+    "link": "/modules/lambdas",
+    "text": "lambdas",
+    "icon": "communication/comment"
+  }
+]

@@ -1,0 +1,30 @@
+{
+  "collection": "files",
+  "fieldDefs": [
+    {
+      "type": "TextField",
+      "key": "name"
+    },
+    {
+      "type": "TextField",
+      "key": "contentType"
+    },
+    {
+      "type": "Slider",
+      "props": {
+        "min": 0,
+        "max": 10000000,
+        "step": 1
+      },
+      "key": "length"
+    },
+    {
+      "type": "File",
+      "key": "_id"
+    },
+    {
+      "common": "valid",
+      "key": "valid"
+    }
+  ]
+}

@@ -1,0 +1,63 @@
+{
+  "collection": "groups",
+  "sort": [
+    [
+      "depth",
+      1
+    ],
+    [
+      "order",
+      1
+    ]
+  ],
+  "search": [
+    {
+      "type": "owner",
+      "title": "parent",
+      "key": "parent._id"
+    },
+    {
+      "common": "fullsearch"
+    }
+  ],
+  "fields": [
+    {
+      "width": 100,
+      "title": "parent",
+      "key": "parent.name"
+    },
+    {
+      "width": 50,
+      "key": "outerId"
+    },
+    {
+      "width": 100,
+      "key": "name"
+    },
+    {
+      "width": 20,
+      "align": "center",
+      "key": "depth"
+    },
+    {
+      "width": 20,
+      "align": "right",
+      "key": "order"
+    },
+    {
+      "width": 50,
+      "align": "center",
+      "key": "kind"
+    },
+    {
+      "width": 20,
+      "common": "valid",
+      "key": "valid"
+    },
+    {
+      "width": 100,
+      "common": "datetime",
+      "key": "updatedAt"
+    }
+  ]
+}
