@@ -602,7 +602,7 @@ router.get('/upload/**', (req, res) => {
   const user = req.session.user;
   const data = { contentType, name, length };
 
-  update(user, 'filemetas', data, null, (err, item) => {
+  update(user, 'files', data, null, (err, item) => {
     if (item) {
       const id = item._id.toString();
 
@@ -641,15 +641,15 @@ router.get('/download/**', (req, res) => {
 
   const _id = new ObjectId(id);
 
-  const filemetas = appGlobal.db.collection('files');
-  filemetas.findOne({ _id }, (err, filemeta) => {
+  const files = appGlobal.db.collection('files');
+  files.findOne({ _id }, (err, file) => {
 
     if (err) {
       res.sendStatus(500);
-    } else if (!filemeta) {
+    } else if (!file) {
       res.sendStatus(400);
     } else {
-      const filename = encodeURIComponent(filemeta.name || _id);
+      const filename = encodeURIComponent(file.name || _id);
       const disposition = `attachment; filename="${filename}"`;
 
       const params = {
