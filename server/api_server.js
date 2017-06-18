@@ -272,6 +272,7 @@ if (!process.env.AWS_BUCKET) {
               db.collection('groups').updateOne({ _id }, {
                 $setOnInsert: {
                   name,
+                  parent: { _id: rootId },
                   ancestors: [{ _id: rootId }, { _id, name }],
                   createdAt,
                   valid,
