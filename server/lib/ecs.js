@@ -39,16 +39,19 @@ class ECS {
   onUpdateUser(item, callback) {
     // タスク追加
     this.createTask(item, (err, data) => {
-      callback(err, data);
+      // 旧バージョンのタスク削除
+      // : data.taskDefinition.family
+      this.deleteTask(item, 2, (err) => {
+        callback(err, item);
+      });
     });
   }
 
   // users 削除
   onRemoveUser(item, callback) {
     // タスク削除 (全バージョン)
-
-    this.createTask(item, (err, data) => {
-      callback(err, data);
+    this.deleteTask(item, 0, (err) => {
+      callback(err, item);
     });
   }
 
@@ -154,36 +157,29 @@ class ECS {
           next(err, data);
         });
       },
-      (data, next) => {
-        // 旧バージョンの削除
-        const params = { familyPrefix: data.taskDefinition.family };
-        ecs.listTaskDefinitions(params, (err, data) => {
-          const arns = data.taskDefinitionArns;
-          arns.pop();
-          arns.pop();
-          async.eachSeries(arns, (arn, next) => {
-            const params = { taskDefinition: arn };
-            ecs.deregisterTaskDefinition(params, (err, data) => {
-              next(err);
-            }, (err) => {
-              next(err);
-            });
-          });
-        });
-      },
     ], (err, data) => {
       callback(err, data);
     });
   }
 
-  // deleteTask(item, callback) {
-  //   const params = { familyPrefix: this.familyPrefix(item) };
-  //
-  //   ecs.listTaskDefinitions(params, (err, data) => {
-  //     callback(null);
-  //   });
-  // }
-  //
+  deleteTask(item, n, callback) {
+    const params = { familyPrefix: this.familyPrefix(item) };
+    ecs.listTaskDefinitions(params, (err, data) => {
+      const arns = data.taskDefinitionArns;
+      for (let i = 0; i < n; i += 1) {
+        arns.pop();
+      }
+      async.eachSeries(arns, (arn, next) => {
+        const params = { taskDefinition: arn };
+        ecs.deregisterTaskDefinition(params, (err, data) => {
+          next(err);
+        }, (err) => {
+          callback(err);
+        });
+      });
+    });
+  }
+
   // listTask(item, callback) {
   //   const params = {
   //     familyPrefix: this.familyPrefix(item),
