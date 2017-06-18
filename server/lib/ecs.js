@@ -15,12 +15,13 @@ const ecr = new aws.ECR({ credentialProvider });
 class ECS {
 
   constructor(db, subscribe) {
+    this.accounts = db.collection('accounts');
     this.users = db.collection('users');
-    subscribe('update', 'users', this.onUpdateUser);
-    subscribe('remove', 'users', this.onRemoveUser);
-    subscribe('update', 'accounts', this.onUpdateAccount);
-    subscribe('remove', 'accounts', this.onRemoveAccount);
-    subscribe('login', 'sessions', this.onLogin);
+    subscribe('update', 'users', this.onUpdateUser, this);
+    subscribe('remove', 'users', this.onRemoveUser, this);
+    subscribe('update', 'accounts', this.onUpdateAccount, this);
+    subscribe('remove', 'accounts', this.onRemoveAccount, this);
+    subscribe('login', 'sessions', this.onLogin, this);
   }
 
   // accounts 更新
@@ -74,22 +75,66 @@ class ECS {
 
   // Task
   familyPrefix(item) {
-    return item._id.toString();
+    return [item.account.key, item.userName].join('_');
+  }
+
+  image(item, callback) {
+    this.accounts.findOne({ _id: item.account._id }, (err, result) => {
+      callback(err, result.image);
+    });
   }
 
   createTask(item, callback) {
-    const name = this.familyPrefix(item);
-    const task = {
-      containerDefinitions: [
-        {
-          name,
-          image: 'jquerywebide_terminal',
-          memory: 100,
-        },
-      ],
-      family: name,
-    };
-    ecs.registerTaskDefinition(task, (err, data) => {
+    async.waterfall([
+      (next) => {
+        this.image(item, next);
+      },
+      (image, next) => {
+        const name = this.familyPrefix(item);
+        const task = {
+          containerDefinitions: [
+            {
+              name,
+              image: [image.name, image.tag].join(':'),
+              memory: image.memory,
+              cpu: image.cpu,
+              mountPoints: [
+                {
+                  containerPath: '/data',
+                  sourceVolume: 'USER_DATA',
+                },
+              ],
+              environment: [
+                {
+                  name: 'PORT',
+                  value: '4000',
+                },
+              ],
+              portMappings: [
+                {
+                  containerPort: 4000,
+                  protocol: 'tcp',
+                },
+              ],
+              // user: 'STRING_VALUE',
+            },
+          ],
+          family: name,
+          networkMode: 'bridge',
+          volumes: [
+            {
+              host: {
+                sourcePath: `/data/${item.account.key}/${item.userName}`,
+              },
+              name: 'USER_DATA',
+            },
+          ],
+        };
+        ecs.registerTaskDefinition(task, (err, data) => {
+          next(err, data);
+        });
+      },
+    ], (err, data) => {
       callback(err, data);
     });
   }

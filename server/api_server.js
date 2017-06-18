@@ -57,17 +57,17 @@ app.get('/', (req, res) => {
 
 const subscribeInfo = {};
 
-function subscribe(type, coll, func) {
+function subscribe(type, coll, func, call) {
   const info = subscribeInfo[type] = subscribeInfo[type] || {};
   const name = coll.s ? coll.s.name : coll;
   info[name] = info[name] || [];
-  info[name].push(func);
+  info[name].push({ func, call });
 }
 
 function publish(type, coll, item, callback) {
   const infos = subscribeInfo[type] || [];
-  async.eachSeries(infos[coll], (func, next) => {
-    func(item, next);
+  async.eachSeries(infos[coll], (info, next) => {
+    info.func.bind(info.call)(item, next);
   }, (err) => {
     callback(err, item);
   });
@@ -252,19 +252,23 @@ if (!process.env.AWS_BUCKET) {
             const accountId = ObjectId('5944f4898853b8000000000a');
             const groupId = ObjectId('5944f4898853b8000000000b');
             const name = 'test';
+            const key = 'test';
             {
               const _id = accountId;
               db.collection('accounts').updateOne({ _id },
                 {
                   $setOnInsert: {
                     name,
+                    key,
                     image: {
                       name: 'jquerywebide_terminal',
                       tag: '20170618',
+                      memory: 100,
+                      cpu: 100,
                     },
                     createdAt,
                     valid,
-                  }
+                  },
                 }, upsert);
             }
             {
@@ -280,6 +284,8 @@ if (!process.env.AWS_BUCKET) {
               }, upsert);
             }
 
+            const account = { _id: accountId, name, key };
+            const primaryGroup = { _id: groupId, name };
             {
               const _id = ObjectId('5944f4898853b80000000001');
               const userName = 'test1';
@@ -287,8 +293,8 @@ if (!process.env.AWS_BUCKET) {
               db.collection('users').updateOne({ _id }, {
                 $setOnInsert: {
                   userName,
-                  account: { _id: accountId, name },
-                  primaryGroup: { _id: groupId, name },
+                  account,
+                  primaryGroup,
                   createdAt,
                   valid,
                 },
@@ -303,8 +309,8 @@ if (!process.env.AWS_BUCKET) {
               db.collection('users').updateOne({ _id }, {
                 $setOnInsert: {
                   userName,
-                  account: { _id: accountId, name },
-                  primaryGroup: { _id: groupId, name },
+                  account,
+                  primaryGroup,
                   createdAt,
                   valid,
                 },
