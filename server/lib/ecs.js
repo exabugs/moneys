@@ -148,9 +148,27 @@ class ECS {
         });
       },
       (data, next) => {
+        // サービスのタスク定義を更新
         const param = { taskDefinition: data.taskDefinition.taskDefinitionArn };
         this.updateService(user, param, (err) => {
           next(err, data);
+        });
+      },
+      (data, next) => {
+        // 旧バージョンの削除
+        const params = { familyPrefix: data.taskDefinition.family };
+        ecs.listTaskDefinitions(params, (err, data) => {
+          const arns = data.taskDefinitionArns;
+          arns.pop();
+          arns.pop();
+          async.eachSeries(arns, (arn, next) => {
+            const params = { taskDefinition: arn };
+            ecs.deregisterTaskDefinition(params, (err, data) => {
+              next(err);
+            }, (err) => {
+              next(err);
+            });
+          });
         });
       },
     ], (err, data) => {
@@ -158,28 +176,28 @@ class ECS {
     });
   }
 
-  deleteTask(item, callback) {
-    const params = { familyPrefix: this.familyPrefix(item) };
-
-    ecs.listTaskDefinitions(params, (err, data) => {
-      callback(null);
-    });
-  }
-
-  listTask(item, callback) {
-    const params = {
-      familyPrefix: this.familyPrefix(item),
-      sort: 'DESC',
-    };
-
-    ecs.listTaskDefinitions(params, (err, data) => {
-      if (err) {
-        callback(err);
-      } else {
-        callback(err, data.taskDefinitionArns[0]);
-      }
-    });
-  }
+  // deleteTask(item, callback) {
+  //   const params = { familyPrefix: this.familyPrefix(item) };
+  //
+  //   ecs.listTaskDefinitions(params, (err, data) => {
+  //     callback(null);
+  //   });
+  // }
+  //
+  // listTask(item, callback) {
+  //   const params = {
+  //     familyPrefix: this.familyPrefix(item),
+  //     sort: 'DESC',
+  //   };
+  //
+  //   ecs.listTaskDefinitions(params, (err, data) => {
+  //     if (err) {
+  //       callback(err);
+  //     } else {
+  //       callback(err, data.taskDefinitionArns[0]);
+  //     }
+  //   });
+  // }
 
   listServices(item, callback) {
     // service arn
