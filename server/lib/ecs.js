@@ -57,7 +57,22 @@ class ECS {
     // 必要数が 2 なら、何もしない
     // サービスが存在するなら、必要数 2 、タスク定義 最新 に更新する
     // サービスが存在しないなら、サービス作成
-    callback(null, item);
+    this.users.findOne({ _id: item.user._id }, (err, user) => {
+      if (err) {
+        callback(err);
+      } else {
+        const desiredCount = 2;
+        this.updateService(user, { desiredCount }, err => {
+          if (err) {
+            this.createService(user, { desiredCount }, err => {
+              callback(err, item);
+            });
+          } else {
+            callback(err, item);
+          }
+        });
+      }
+    });
   }
 
   // ログアウト
@@ -84,53 +99,57 @@ class ECS {
     });
   }
 
-  createTask(item, callback) {
+  createTask(user, callback) {
     async.waterfall([
       (next) => {
-        this.image(item, next);
+        this.image(user, next);
       },
       (image, next) => {
-        const name = this.familyPrefix(item);
+        const ecrurl = [process.env.AWS_ACCOUNT, 'dkr', ecr.endpoint.host].join('.');
+        const name = this.familyPrefix(user);
         const task = {
+          family: name,
+          networkMode: 'bridge',
           containerDefinitions: [
             {
               name,
-              image: [image.name, image.tag].join(':'),
+              image: `${ecrurl}/${image.name}:${image.tag}`,
               memory: image.memory,
               cpu: image.cpu,
-              mountPoints: [
-                {
-                  containerPath: '/data',
-                  sourceVolume: 'USER_DATA',
+              logConfiguration: {
+                logDriver: 'awslogs',
+                options: {
+                  'awslogs-group': process.env.CLUSTER,
+                  'awslogs-region': process.env.AWS_REGION,
+                  'awslogs-stream-prefix': process.env.CLUSTER,
                 },
+              },
+              mountPoints: [
+                { containerPath: '/data', sourceVolume: 'USER_DATA' },
               ],
               environment: [
-                {
-                  name: 'PORT',
-                  value: '4000',
-                },
+                { name: 'PORT', value: '4000' },
               ],
               portMappings: [
-                {
-                  containerPort: 4000,
-                  protocol: 'tcp',
-                },
+                { containerPort: 4000, protocol: 'tcp' },
               ],
               // user: 'STRING_VALUE',
             },
           ],
-          family: name,
-          networkMode: 'bridge',
           volumes: [
             {
-              host: {
-                sourcePath: `/data/${item.account.key}/${item.userName}`,
-              },
+              host: { sourcePath: `/data/${user.account.key}/${user.userName}` },
               name: 'USER_DATA',
             },
           ],
         };
         ecs.registerTaskDefinition(task, (err, data) => {
+          next(err, data);
+        });
+      },
+      (data, next) => {
+        const param = { taskDefinition: data.taskDefinition.taskDefinitionArn };
+        this.updateService(user, param, (err) => {
           next(err, data);
         });
       },
@@ -188,29 +207,27 @@ class ECS {
   }
 
 
-  updateService(item, callback) {
-    callback(null);
-
-    var params = {
+  updateService(user, { desiredCount, taskDefinition }, callback) {
+    const params = {
       cluster: process.env.CLUSTER,
-      service: 'STRING_VALUE', // serviceName
-      desiredCount: 0,
-      // taskDefinition: 'STRING_VALUE'
+      service: this.familyPrefix(user),
+      desiredCount,
+      taskDefinition,
     };
     ecs.updateService(params, (err, data) => {
-      if (err) console.log(err, err.stack); // an error occurred
-      else     console.log(data);           // successful response
+      console.log(JSON.stringify(data));
+      callback(err, data);
     });
   }
 
-  createService(item, callback) {
+  createService(item, { desiredCount }, callback) {
 
     const params = {
       cluster: process.env.CLUSTER,
-      desiredCount: 0, /* required */
-      serviceName: 'STRING_VALUE', /* required */
-      taskDefinition: 'STRING_VALUE', /* required */
-      clientToken: 'STRING_VALUE', // _id
+      desiredCount,
+      serviceName: this.familyPrefix(item),
+      taskDefinition: this.familyPrefix(item),
+      clientToken: item._id.toString(),
       // deploymentConfiguration: {
       //   maximumPercent: 0,
       //   minimumHealthyPercent: 0
@@ -241,8 +258,7 @@ class ECS {
       // role: 'STRING_VALUE'
     };
     ecs.createService(params, (err, data) => {
-      if (err) console.log(err, err.stack); // an error occurred
-      else     console.log(data);           // successful response
+      callback(err, data);
     });
   }
 

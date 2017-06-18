@@ -9,6 +9,7 @@ const _ = require('underscore');
 const async = require('async');
 const crypto = require('crypto');
 const kuromoji = require('@exabugs/kuromoji');
+const initial = require('./initial');
 
 const { ObjectId, MongoClient } = mongodb;
 
@@ -24,7 +25,9 @@ process.env.CLUSTER = process.env.CLUSTER || 'frontend';
 
 const credentialProvider = new aws.CredentialProviderChain();
 const cognitoidentity = new aws.CognitoIdentity({ credentialProvider });
+const iam = new aws.IAM({ credentialProvider });
 const s3 = new aws.S3({ credentialProvider });
+const metadata = new aws.MetadataService({ credentialProvider });
 
 const dbMaster = 'master';
 
@@ -133,7 +136,7 @@ const authUser = (userName, pass, clientKey, callback) => {
         } else {
           // セッション生成
           appGlobal.sessions.create(user, client).then((token) => {
-            Object.assign(token, user);
+            token.user = user;
             callback(null, token);
           }).catch((err2) => {
             callback(err2);
@@ -207,124 +210,45 @@ function getSignedUrl(operation, params) {
 
 if (!process.env.AWS_BUCKET) {
   console.log('AWS Bucket not specified.');
+} else if (!process.env.AWS_ACCOUNT) {
+    console.log('AWS Account not specified.');
 } else {
 
-  kuromoji.builder().build((err, tokenizer) => {
+  async.waterfall([
+    (next) => {
+      kuromoji.builder().build((err, tokenizer) => {
+        appGlobal.tokenizer = tokenizer;
+        next(err);
+      });
+    },
+    (next) => {
+      MongoClient.connect(process.env.MONGODB, (err, db) => {
+        db = db.db(dbMaster);
+        appGlobal.db = db;
+        next(err, db);
+      });
+    },
+    (db, next) => {
+      // session
+      appGlobal.sessions = new Sessions(db);
+
+      // ecs
+      appGlobal.ecs = new ECS(db, subscribe);
+
+      // initial
+      initial(db, ObjectId, createHmac);
+
+      next(null);
+    },
+    (next) => {
+      app.listen(process.env.PORT, () => {
+        console.log(`Example app listening on port ${process.env.PORT}!`);
+        next();
+      });
+    },
+  ], (err) => {
     if (err) {
       console.log(err);
-    } else {
-      appGlobal.tokenizer = tokenizer;
-
-      MongoClient.connect(process.env.MONGODB, (err, db) => {
-        if (err) {
-          console.log(err);
-        } else {
-          db = db.db(dbMaster);
-          appGlobal.db = db;
-
-          // session
-          appGlobal.sessions = new Sessions(db);
-
-          // ecs
-          appGlobal.ecs = new ECS(db, subscribe);
-
-          // 管理者アカウント
-          const createdAt = new Date();
-          const valid = true;
-          const upsert = { upsert: true };
-          const rootId = ObjectId('000000000000000000000000');
-
-          {
-            const _id = rootId;
-            const name = 'root';
-            const userName = 'admin';
-            const password = createHmac('123');
-            db.collection('groups').updateOne({ _id },
-              { $setOnInsert: { name, ancestors: [{ _id, name }], createdAt, valid } }, upsert);
-
-            db.collection('users').updateOne({ _id },
-              { $setOnInsert: { userName, primaryGroup: { _id, name }, createdAt, valid } }, upsert);
-            db.collection('passwords').updateOne({ userName },
-              { $setOnInsert: { password, createdAt, valid } }, upsert);
-          }
-
-          {
-            const accountId = ObjectId('5944f4898853b8000000000a');
-            const groupId = ObjectId('5944f4898853b8000000000b');
-            const name = 'test';
-            const key = 'test';
-            {
-              const _id = accountId;
-              db.collection('accounts').updateOne({ _id },
-                {
-                  $setOnInsert: {
-                    name,
-                    key,
-                    image: {
-                      name: 'jquerywebide_terminal',
-                      tag: '20170618',
-                      memory: 100,
-                      cpu: 100,
-                    },
-                    createdAt,
-                    valid,
-                  },
-                }, upsert);
-            }
-            {
-              const _id = groupId;
-              db.collection('groups').updateOne({ _id }, {
-                $setOnInsert: {
-                  name,
-                  parent: { _id: rootId },
-                  ancestors: [{ _id: rootId }, { _id, name }],
-                  createdAt,
-                  valid,
-                },
-              }, upsert);
-            }
-
-            const account = { _id: accountId, name, key };
-            const primaryGroup = { _id: groupId, name };
-            {
-              const _id = ObjectId('5944f4898853b80000000001');
-              const userName = 'test1';
-              const password = createHmac('123');
-              db.collection('users').updateOne({ _id }, {
-                $setOnInsert: {
-                  userName,
-                  account,
-                  primaryGroup,
-                  createdAt,
-                  valid,
-                },
-              }, upsert);
-              db.collection('passwords').updateOne({ userName },
-                { $setOnInsert: { password, createdAt } }, upsert);
-            }
-            {
-              const _id = ObjectId('5944f4898853b80000000002');
-              const userName = 'test2';
-              const password = createHmac('123');
-              db.collection('users').updateOne({ _id }, {
-                $setOnInsert: {
-                  userName,
-                  account,
-                  primaryGroup,
-                  createdAt,
-                  valid,
-                },
-              }, upsert);
-              db.collection('passwords').updateOne({ userName },
-                { $setOnInsert: { password, createdAt } }, upsert);
-            }
-          }
-
-          app.listen(process.env.PORT, () => {
-            console.log(`Example app listening on port ${process.env.PORT}!`);
-          });
-        }
-      });
     }
   });
 }

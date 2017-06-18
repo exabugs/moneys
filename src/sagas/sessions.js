@@ -14,10 +14,10 @@ export function* watchDoLogin(params) {
   } else {
     console.log(data);
     const result = {
-      userName: data.userName,
+      userName: data.user.userName,
       token: data.token,
       token_type: data.token_type,
-      primaryGroup: data.primaryGroup._id,
+      primaryGroup: data.user.primaryGroup._id,
     };
     yield put(loginSuccess(result));
     path = yield select(state => state.session.path);
