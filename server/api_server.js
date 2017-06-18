@@ -11,17 +11,19 @@ const crypto = require('crypto');
 const kuromoji = require('@exabugs/kuromoji');
 
 const { ObjectId, MongoClient } = mongodb;
-const mongoUrl = 'mongodb://localhost:27017/';
 
 process.env.HOST = process.env.HOST || 'exabugs.k2s.io';
 process.env.PORT = process.env.PORT || 8007;
 process.env.AWS_REGION = process.env.AWS_REGION || 'ap-northeast-1';
 process.env.AWS_BUCKET = process.env.AWS_BUCKET || 'jp.co.dreamarts.exabugs';
+
+process.env.MONGODB = process.env.MONGODB || 'mongodb://localhost:27017/';
 process.env.DB_NAME = process.env.DB_NAME || 'master';
 
 const credentialProvider = new aws.CredentialProviderChain();
 const cognitoidentity = new aws.CognitoIdentity({ credentialProvider });
 const s3 = new aws.S3({ credentialProvider });
+const ecs = new aws.ECS({ credentialProvider });
 
 const dbMaster = 'master';
 
@@ -40,63 +42,17 @@ app.use(cors());
 app.use(morgan('dev'));
 
 
-/*
- db.getCollection('venues').ensureIndex( { location : "2dsphere" } );
-
- db.getCollection('venues').find(
- { location : { $near: {
- $geometry: { type: "Point", coordinates: [ 141.31998, 43.041403 ] }
- }
- } } , {address:1})
-
- */
-
 const values = (array, key) => array.map(a => a[key]);
 
 app.get('/', (req, res) => {
   res.send('Hello World!');
 });
 
-app.get('/zipcodes/:id', (req, res) => {
-  const db = appGlobal.db.db('zipcode');
-  const coll = db.collection('zipcode');
-  const id = RegExp('^' + req.params.id);
-  const field = { code: 1, pref: 1, city: 1, option: 1 };
-  const sort = [['code', 1], ['pref', 1], ['city', 1]];
-  coll.find({ code: id }, field, { limit: 20, sort }).toArray((err, result) => {
-    result.forEach(item => {
-      delete item._id;
-    });
-    res.send(result);
-  });
-});
+const loginFunctions = [];
 
-app.get('/geocodes/:id', (req, res) => {
-  const db = appGlobal.db.db('zipcode');
+const updateFunctions = [];
 
-  const zip = db.collection('zipcode');
-  const geo = db.collection('geocode');
-
-  const id = RegExp('^' + req.params.id);
-  const field = { code: 1, pref: 1, city: 1, option: 1 };
-  const sort = [['code', 1], ['pref', 1], ['city', 1]];
-  zip.find({ code: id }, field, { limit: 100, sort }).toArray((err1, zipItems) => {
-    const result = [];
-    async.eachSeries(zipItems, (zipItem, next) => {
-      const cond = {
-        pref: zipItem.pref,
-        city: zipItem.city,
-//        addr: RegExp()
-      };
-      geo.find(cond, { addr: 1 }, { sort: [['_id', 1]], limit: 100 }).toArray((err2, geoItems) => {
-        Array.prototype.push.apply(result, geoItems);
-        next(err2);
-      });
-    }, (err3) => {
-      res.send(result);
-    });
-  });
-});
+const removeFunctions = [];
 
 
 // BaseURL
@@ -169,41 +125,55 @@ const authUser = (userName, pass, clientKey, callback) => {
   });
 };
 
-router.post('/login', (req, res, next) => {
+router.post('/login', (req, res) => {
   const { userName, password } = req.body;
 
   const { clientKey } = req.body;
 
-  // 認証
-  authUser(userName, password, clientKey, (err, data) => {
-    if (err) {
-      console.log(err);
-      next(err);
-    } else if (!process.env.AWS_POOL_ID) {
-      res.send(data);
-    } else {
-      console.log(data);
-      // 次に GetOpenIdTokenForDeveloperIdentity を呼び出す
-      const params = {
-        IdentityPoolId: process.env.AWS_POOL_ID,
-        Logins: {
-          // アプリ名とユーザー名(任意の定義)を渡す
-          'jp.co.dreamarts.jcomsurvey': userName,
-        },
-      };
-      cognitoidentity.getOpenIdTokenForDeveloperIdentity(params, (err2, cognito) => {
-        if (err2) {
-          console.log(err2);
-        } else {
-          // クライアントに CognitoId と OpenIdToken を返してやる
-          data.cognito = cognito;
-          res.send(data);
-          // cognito = {
-          //  IdentityId: 'YOUR_COGNITO_ID',
-          //  Token: 'YOUR_TOKEN'
-          // };
-        }
+  async.waterfall([
+    (next) => {
+      // 認証
+      authUser(userName, password, clientKey, (err, data) => {
+        next(err, data);
       });
+    },
+    (data, next) => {
+      async.eachSeries(loginFunctions, (info, next2) => {
+        info.func(null, data, next2);
+      }, (err) => {
+        next(err, data);
+      });
+    },
+    (data, next) => {
+      if (!process.env.AWS_POOL_ID) {
+        next(null, data);
+      } else {
+        // 次に GetOpenIdTokenForDeveloperIdentity を呼び出す
+        const params = {
+          IdentityPoolId: process.env.AWS_POOL_ID,
+          Logins: {
+            // アプリ名とユーザー名(任意の定義)を渡す
+            'jp.co.dreamarts.jcomsurvey': userName,
+          },
+        };
+        cognitoidentity.getOpenIdTokenForDeveloperIdentity(params, (err2, cognito) => {
+          if (err2) {
+            next(err2);
+          } else {
+            // クライアントに CognitoId と OpenIdToken を返してやる
+            data.cognito = cognito;
+            next(err2, data);
+            // cognito = {
+            //  IdentityId: 'YOUR_COGNITO_ID',
+            //  Token: 'YOUR_TOKEN'
+            // };
+          }
+        });
+      }
+    },
+  ], (err, data) => {
+    if (!err) {
+      res.send(data);
     }
   });
 });
@@ -231,7 +201,7 @@ if (!process.env.AWS_BUCKET) {
     } else {
       appGlobal.tokenizer = tokenizer;
 
-      MongoClient.connect(mongoUrl, (err, db) => {
+      MongoClient.connect(process.env.MONGODB, (err, db) => {
         if (err) {
           console.log(err);
         } else {
@@ -244,16 +214,16 @@ if (!process.env.AWS_BUCKET) {
           // 管理者アカウント
           const userName = 'admin';
           const _id = ObjectId('000000000000000000000000');
-          // const root = { _id };
           const upsert = { upsert: true };
           const password = createHmac('daadmin');
           const name = 'root';
-          db.collection('users').updateOne(root,
-            { $setOnInsert: { userName, primaryGroup: { _id, name } } }, upsert);
+          const createdAt = new Date();
+          db.collection('users').updateOne({ _id },
+            { $setOnInsert: { userName, primaryGroup: { _id, name }, createdAt } }, upsert);
           db.collection('passwords').updateOne({ userName },
-            { $setOnInsert: { password } }, upsert);
+            { $setOnInsert: { password, createdAt } }, upsert);
           db.collection('groups').updateOne({ _id },
-            { $setOnInsert: { name, ancestors: [{ _id, name }] } }, upsert);
+            { $setOnInsert: { name, ancestors: [{ _id, name }], createdAt } }, upsert);
 
           app.listen(process.env.PORT, () => {
             console.log(`Example app listening on port ${process.env.PORT}!`);
@@ -264,8 +234,8 @@ if (!process.env.AWS_BUCKET) {
   });
 }
 
-function number(str, defo) {
-  return str ? Number(str) : defo;
+function number(str, alt) {
+  return str ? Number(str) : alt;
 }
 
 const list_colls = Object.keys(list_config.config.modules);
@@ -301,9 +271,6 @@ function handler(collname) {
     let field = 'owner.';
     (collname === 'groups') && (field = '');
     (collname === 'users') && (field = 'primaryGroup.');
-    if (collname === 'venues') {
-      field = 'group.';
-    }
 
     const params = {
       skip: number(req.query.skip, 0),
@@ -395,6 +362,7 @@ function handler(collname) {
     });
   };
 }
+
 list_colls.forEach((col) => {
   router.get(`/${col}`, handler(col));
 });
@@ -440,6 +408,7 @@ function setInitial(obj, ini, key, value) {
   }
 }
 
+
 // todo: insert か update か、よく考える。
 // upsert:true は 危険
 function update(user, collname, data, id, callback) {
@@ -478,6 +447,17 @@ function update(user, collname, data, id, callback) {
         next(err, item);
       });
     },
+    (item, next) => {
+      async.eachSeries(updateFunctions, (info, next2) => {
+        if (info.collname === collname) {
+          info.func(collname, item, next2);
+        } else {
+          next2(null);
+        }
+      }, (err) => {
+        next(err, item);
+      });
+    },
   ], (err, item) => {
     callback(err, item);
   });
@@ -505,8 +485,25 @@ function remove(user, collname, id, callback) {
   async.waterfall([
     (next) => {
       const _id = new ObjectId(id);
-      coll.remove({ _id }, (err) => {
-        next(err, { _id });
+      coll.findOne({ _id }, (err, item) => {
+        if (item) {
+          coll.remove({ _id }, (err) => {
+            next(err, item);
+          });
+        } else {
+          next(err, item);
+        }
+      });
+    },
+    (item, next) => {
+      async.eachSeries(removeFunctions, (info, next2) => {
+        if (info.collname === collname) {
+          info.func(collname, item, next2);
+        } else {
+          next2(null);
+        }
+      }, (err) => {
+        next(err, item);
       });
     },
   ], (err, item) => {
@@ -668,3 +665,33 @@ router.get('/download/**', (req, res) => {
 
 });
 
+// Task
+function createTask(collname, item, callback) {
+  const params = {
+    familyPrefix: "wordpress"
+  };
+  ecs.listTaskDefinitions(params, (err, data) => {
+    //   callback(null);
+    // });
+
+    // var params = {
+    //   taskDefinition: "hello_world:8"
+    // };
+    // ecs.describeTaskDefinition(params, (err, data) => {
+
+    const task = {};
+    ecs.registerTaskDefinition(task, (err, data2) => {
+      callback(null);
+    });
+  });
+}
+updateFunctions.push({ collname: 'users', func: createTask });
+
+function deleteTask(collname, item, callback) {
+  const params = {};
+  ecs.listTaskDefinitions(params, (err, data) => {
+    callback(null);
+  });
+}
+
+removeFunctions.push({ collname: 'users', func: deleteTask });
