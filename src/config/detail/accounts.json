@@ -1,0 +1,17 @@
+{
+  "collection": "accounts",
+  "fieldDefs": [
+    {
+      "type": "TextField",
+      "key": "name"
+    },
+    {
+      "common": "image",
+      "key": "image"
+    },
+    {
+      "common": "valid",
+      "key": "valid"
+    }
+  ]
+}

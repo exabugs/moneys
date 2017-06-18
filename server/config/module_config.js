@@ -8,7 +8,7 @@ const { ObjectId } = mongodb;
 const modules = {};
 const config = { modules };
 
-const dir = __dirname + '/detail/';
+const dir = __dirname + '/../../src/config/detail/';
 
 const files = fs.readdirSync(dir);
 files.filter(file => {

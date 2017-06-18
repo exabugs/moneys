@@ -20,14 +20,16 @@ process.env.AWS_BUCKET = process.env.AWS_BUCKET || 'jp.co.dreamarts.exabugs';
 process.env.MONGODB = process.env.MONGODB || 'mongodb://localhost:27017/';
 process.env.DB_NAME = process.env.DB_NAME || 'master';
 
+process.env.CLUSTER = process.env.CLUSTER || 'frontend';
+
 const credentialProvider = new aws.CredentialProviderChain();
 const cognitoidentity = new aws.CognitoIdentity({ credentialProvider });
 const s3 = new aws.S3({ credentialProvider });
-const ecs = new aws.ECS({ credentialProvider });
 
 const dbMaster = 'master';
 
-const sessions = require('./lib/sessions');
+const Sessions = require('./lib/sessions');
+const ECS = require('./lib/ecs');
 
 const module_config = require('./config/module_config');
 const list_config = require('./config/list_config');
@@ -44,16 +46,32 @@ app.use(morgan('dev'));
 
 const values = (array, key) => array.map(a => a[key]);
 
+const toObj1 = (array) => array.reduce((memo, v) => {
+  memo[v] = 1;
+  return memo
+}, {});
+
 app.get('/', (req, res) => {
   res.send('Hello World!');
 });
 
-const loginFunctions = [];
+const subscribeInfo = {};
 
-const updateFunctions = [];
+function subscribe(type, coll, func) {
+  const info = subscribeInfo[type] = subscribeInfo[type] || {};
+  const name = coll.s ? coll.s.name : coll;
+  info[name] = info[name] || [];
+  info[name].push(func);
+}
 
-const removeFunctions = [];
-
+function publish(type, coll, item, callback) {
+  const infos = subscribeInfo[type] || [];
+  async.eachSeries(infos[coll], (func, next) => {
+    func(item, next);
+  }, (err) => {
+    callback(err, item);
+  });
+}
 
 // BaseURL
 const CONTEXT = '/admin';
@@ -81,7 +99,7 @@ app.use(CONTEXT, (req, res, next) => {
 });
 
 // エラーハンドリング
-app.use(CONTEXT, sessions.handleError);
+app.use(CONTEXT, Sessions.handleError);
 
 const router = express.Router('/survey');
 
@@ -106,7 +124,8 @@ const authUser = (userName, pass, clientKey, callback) => {
     } else if (authe.password !== password) {
       callback({ status: 404 });
     } else {
-      users.findOne({ userName }, { name: 1, userName: 1, primaryGroup: 1 }, (err, user) => {
+      const fields = ['name', 'userName', 'primaryGroup'];
+      users.findOne({ userName }, toObj1(fields), (err, user) => {
         if (err) {
           callback(err);
         } else if (!user) {
@@ -138,11 +157,7 @@ router.post('/login', (req, res) => {
       });
     },
     (data, next) => {
-      async.eachSeries(loginFunctions, (info, next2) => {
-        info.func(null, data, next2);
-      }, (err) => {
-        next(err, data);
-      });
+      publish('login', 'sessions', data, next);
     },
     (data, next) => {
       if (!process.env.AWS_POOL_ID) {
@@ -190,7 +205,6 @@ function getSignedUrl(operation, params) {
   });
 }
 
-
 if (!process.env.AWS_BUCKET) {
   console.log('AWS Bucket not specified.');
 } else {
@@ -209,21 +223,95 @@ if (!process.env.AWS_BUCKET) {
           appGlobal.db = db;
 
           // session
-          appGlobal.sessions = new sessions(db.collection('sessions'));
+          appGlobal.sessions = new Sessions(db);
+
+          // ecs
+          appGlobal.ecs = new ECS(db, subscribe);
 
           // 管理者アカウント
-          const userName = 'admin';
-          const _id = ObjectId('000000000000000000000000');
-          const upsert = { upsert: true };
-          const password = createHmac('daadmin');
-          const name = 'root';
           const createdAt = new Date();
-          db.collection('users').updateOne({ _id },
-            { $setOnInsert: { userName, primaryGroup: { _id, name }, createdAt } }, upsert);
-          db.collection('passwords').updateOne({ userName },
-            { $setOnInsert: { password, createdAt } }, upsert);
-          db.collection('groups').updateOne({ _id },
-            { $setOnInsert: { name, ancestors: [{ _id, name }], createdAt } }, upsert);
+          const valid = true;
+          const upsert = { upsert: true };
+          const rootId = ObjectId('000000000000000000000000');
+
+          {
+            const _id = rootId;
+            const name = 'root';
+            const userName = 'admin';
+            const password = createHmac('123');
+            db.collection('groups').updateOne({ _id },
+              { $setOnInsert: { name, ancestors: [{ _id, name }], createdAt, valid } }, upsert);
+
+            db.collection('users').updateOne({ _id },
+              { $setOnInsert: { userName, primaryGroup: { _id, name }, createdAt, valid } }, upsert);
+            db.collection('passwords').updateOne({ userName },
+              { $setOnInsert: { password, createdAt, valid } }, upsert);
+          }
+
+          {
+            const accountId = ObjectId('5944f4898853b8000000000a');
+            const groupId = ObjectId('5944f4898853b8000000000b');
+            const name = 'test';
+            {
+              const _id = accountId;
+              db.collection('accounts').updateOne({ _id },
+                {
+                  $setOnInsert: {
+                    name,
+                    image: {
+                      name: 'jquerywebide_terminal',
+                      tag: '20170618',
+                    },
+                    createdAt,
+                    valid,
+                  }
+                }, upsert);
+            }
+            {
+              const _id = groupId;
+              db.collection('groups').updateOne({ _id }, {
+                $setOnInsert: {
+                  name,
+                  ancestors: [{ _id: rootId }, { _id, name }],
+                  createdAt,
+                  valid,
+                },
+              }, upsert);
+            }
+
+            {
+              const _id = ObjectId('5944f4898853b80000000001');
+              const userName = 'test1';
+              const password = createHmac('123');
+              db.collection('users').updateOne({ _id }, {
+                $setOnInsert: {
+                  userName,
+                  account: { _id: accountId, name },
+                  primaryGroup: { _id: groupId, name },
+                  createdAt,
+                  valid,
+                },
+              }, upsert);
+              db.collection('passwords').updateOne({ userName },
+                { $setOnInsert: { password, createdAt } }, upsert);
+            }
+            {
+              const _id = ObjectId('5944f4898853b80000000002');
+              const userName = 'test2';
+              const password = createHmac('123');
+              db.collection('users').updateOne({ _id }, {
+                $setOnInsert: {
+                  userName,
+                  account: { _id: accountId, name },
+                  primaryGroup: { _id: groupId, name },
+                  createdAt,
+                  valid,
+                },
+              }, upsert);
+              db.collection('passwords').updateOne({ userName },
+                { $setOnInsert: { password, createdAt } }, upsert);
+            }
+          }
 
           app.listen(process.env.PORT, () => {
             console.log(`Example app listening on port ${process.env.PORT}!`);
@@ -448,15 +536,7 @@ function update(user, collname, data, id, callback) {
       });
     },
     (item, next) => {
-      async.eachSeries(updateFunctions, (info, next2) => {
-        if (info.collname === collname) {
-          info.func(collname, item, next2);
-        } else {
-          next2(null);
-        }
-      }, (err) => {
-        next(err, item);
-      });
+      publish('update', collname, item, next);
     },
   ], (err, item) => {
     callback(err, item);
@@ -496,15 +576,7 @@ function remove(user, collname, id, callback) {
       });
     },
     (item, next) => {
-      async.eachSeries(removeFunctions, (info, next2) => {
-        if (info.collname === collname) {
-          info.func(collname, item, next2);
-        } else {
-          next2(null);
-        }
-      }, (err) => {
-        next(err, item);
-      });
+      publish('remove', collname, item, next);
     },
   ], (err, item) => {
     callback(err, item);
@@ -664,34 +736,3 @@ router.get('/download/**', (req, res) => {
   });
 
 });
-
-// Task
-function createTask(collname, item, callback) {
-  const params = {
-    familyPrefix: "wordpress"
-  };
-  ecs.listTaskDefinitions(params, (err, data) => {
-    //   callback(null);
-    // });
-
-    // var params = {
-    //   taskDefinition: "hello_world:8"
-    // };
-    // ecs.describeTaskDefinition(params, (err, data) => {
-
-    const task = {};
-    ecs.registerTaskDefinition(task, (err, data2) => {
-      callback(null);
-    });
-  });
-}
-updateFunctions.push({ collname: 'users', func: createTask });
-
-function deleteTask(collname, item, callback) {
-  const params = {};
-  ecs.listTaskDefinitions(params, (err, data) => {
-    callback(null);
-  });
-}
-
-removeFunctions.push({ collname: 'users', func: deleteTask });

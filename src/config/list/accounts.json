@@ -1,0 +1,26 @@
+{
+  "collection": "accounts",
+  "sort": [
+  ],
+  "search": [
+    {
+      "common": "fullsearch"
+    }
+  ],
+  "fields": [
+    {
+      "width": 80,
+      "key": "name"
+    },
+    {
+      "width": 20,
+      "common": "valid",
+      "key": "valid"
+    },
+    {
+      "width": 100,
+      "common": "datetime",
+      "key": "updatedAt"
+    }
+  ]
+}

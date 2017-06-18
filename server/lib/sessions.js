@@ -7,8 +7,9 @@ const ERROR_INVALID_TOKEN = { type: Bearer, status: 401, text: 'error="invalid_t
 
 class Session {
 
-  constructor(sessions) {
-    this.sessions = sessions; // Collection. Set after DB connect succeeded.
+  constructor(db) {
+    this.db = db; // Set after DB connect succeeded.
+    this.sessions = db.collection('sessions');
     this.tokenLength = 32;
     this.tokenValidity = 24 * 60 * 60 * 1000; // 24h
   }

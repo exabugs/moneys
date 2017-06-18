@@ -1,5 +1,6 @@
 import _ from 'underscore';
 
+import accounts from './accounts.json';
 import groups from './groups.json';
 import users from './users.json';
 import sessions from './sessions.json';
@@ -9,6 +10,7 @@ import common from './_common.json';
 
 const config = {
   modules: {
+    accounts,
     groups,
     users,
     sessions,
