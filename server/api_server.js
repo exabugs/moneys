@@ -21,13 +21,13 @@ process.env.AWS_BUCKET = process.env.AWS_BUCKET || 'jp.co.dreamarts.exabugs';
 process.env.MONGODB = process.env.MONGODB || 'mongodb://localhost:27017/';
 process.env.DB_NAME = process.env.DB_NAME || 'master';
 
-process.env.CLUSTER = process.env.CLUSTER || 'frontend';
+process.env.AWS_CLUSTER = process.env.AWS_CLUSTER || 'frontend';
+process.env.AWS_ALB = process.env.AWS_ALB || 'frontend';
+process.env.DOMAIN_INTERNAL = process.env.DOMAIN_INTERNAL || 'mongodb.internal';
 
 const credentialProvider = new aws.CredentialProviderChain();
 const cognitoidentity = new aws.CognitoIdentity({ credentialProvider });
-const iam = new aws.IAM({ credentialProvider });
 const s3 = new aws.S3({ credentialProvider });
-const metadata = new aws.MetadataService({ credentialProvider });
 
 const dbMaster = 'master';
 
@@ -208,57 +208,11 @@ function getSignedUrl(operation, params) {
   });
 }
 
-if (!process.env.AWS_BUCKET) {
-  console.log('AWS Bucket not specified.');
-} else if (!process.env.AWS_ACCOUNT) {
-    console.log('AWS Account not specified.');
-} else {
-
-  async.waterfall([
-    (next) => {
-      kuromoji.builder().build((err, tokenizer) => {
-        appGlobal.tokenizer = tokenizer;
-        next(err);
-      });
-    },
-    (next) => {
-      MongoClient.connect(process.env.MONGODB, (err, db) => {
-        db = db.db(dbMaster);
-        appGlobal.db = db;
-        next(err, db);
-      });
-    },
-    (db, next) => {
-      // session
-      appGlobal.sessions = new Sessions(db);
-
-      // ecs
-      appGlobal.ecs = new ECS(db, subscribe);
-
-      // initial
-      initial(db, ObjectId, createHmac);
-
-      next(null);
-    },
-    (next) => {
-      app.listen(process.env.PORT, () => {
-        console.log(`Example app listening on port ${process.env.PORT}!`);
-        next();
-      });
-    },
-  ], (err) => {
-    if (err) {
-      console.log(err);
-    }
-  });
-}
 
 function number(str, alt) {
   return str ? Number(str) : alt;
 }
 
-const list_colls = Object.keys(list_config.config.modules);
-const module_colls = Object.keys(module_config.config.modules);
 
 // todo : Date 型
 const flatten = (obj, keys) => {
@@ -285,7 +239,7 @@ function handler(collname) {
   return (req, res) => {
     const db = appGlobal.db;
     const coll = db.collection(collname);
-    const fieldDefs = list_config.config.modules[collname];
+    const fieldDefs = appGlobal.config.list.modules[collname];
 
     let field = 'owner.';
     (collname === 'groups') && (field = '');
@@ -362,11 +316,11 @@ function handler(collname) {
 
         coll.find(_cond, params).toArray((err, items) => {
 
-          const fieldsDef = module_config.config.modules[collname];
+          const fieldsDef = appGlobal.config.module.modules[collname];
 
           items = items.map(item => {
-            // return module_config.convert(false, fieldsDef, item);
-            const ret = module_config.convert(false, fieldsDef, item);
+            // return appGlobal.config.module.convert(false, fieldsDef, item);
+            const ret = appGlobal.config.module.convert(false, fieldsDef, item);
             Object.keys(ret).forEach(key => {
               item[key] = ret[key];
             });
@@ -382,9 +336,6 @@ function handler(collname) {
   };
 }
 
-list_colls.forEach((col) => {
-  router.get(`/${col}`, handler(col));
-});
 
 function handlerOne(collname) {
   return (req, res) => {
@@ -412,9 +363,7 @@ function handlerOne(collname) {
     });
   };
 }
-module_colls.forEach((col) => {
-  router.get(`/${col}/:id`, handlerOne(col));
-});
+
 
 function isObjectId(str) {
   return str && /[a-f0-9]{24}/.test(str);
@@ -434,9 +383,9 @@ function update(user, collname, data, id, callback) {
   const db = appGlobal.db;
   const coll = db.collection(collname);
 
-  const fieldsDef = module_config.config.modules[collname];
+  const fieldsDef = appGlobal.config.module.modules[collname];
 
-  const detail = module_config.convert(true, fieldsDef, data);
+  const detail = appGlobal.config.module.convert(true, fieldsDef, data);
 
   detail.updatedAt = new Date();
   detail.updatedBy = { name: user.name, _id: user._id };
@@ -531,12 +480,6 @@ function handlerRemove(collname) {
     }
   };
 }
-
-module_colls.forEach((col) => {
-  router.post(`/${col}`, handlerUpdate(col));
-  router.put(`/${col}/:id`, handlerUpdate(col));
-  router.delete(`/${col}/:id`, handlerRemove(col));
-});
 
 
 // パンくずリスト
@@ -667,3 +610,80 @@ router.get('/download/**', (req, res) => {
   });
 
 });
+
+if (!process.env.AWS_BUCKET) {
+  console.log('AWS Bucket not specified.');
+} else if (!process.env.AWS_ACCOUNT) {
+  console.log('AWS Account not specified.');
+} else {
+
+  async.waterfall([
+    (next) => {
+      kuromoji.builder().build((err, tokenizer) => {
+        appGlobal.tokenizer = tokenizer;
+        next(err);
+      });
+    },
+    (next) => {
+      MongoClient.connect(process.env.MONGODB, (err, db) => {
+        db = db.db(dbMaster);
+        appGlobal.db = db;
+        next(err, db);
+      });
+    },
+    (db, next) => {
+      // session
+      appGlobal.sessions = new Sessions(db);
+
+      // ecs
+      const param = {
+        account: process.env.AWS_ACCOUNT,
+        region: process.env.AWS_REGION,
+        cluster: process.env.AWS_CLUSTER,
+        alb: process.env.AWS_ALB,
+        domain: process.env.DOMAIN_INTERNAL,
+      };
+      appGlobal.ecs = new ECS(db, subscribe, param);
+
+      // initial
+      initial(db, ObjectId, createHmac);
+
+      next(null, db);
+    },
+    (db, next) => {
+      appGlobal.config = {
+        module: module_config.config(db),
+        list: list_config.config(db),
+      };
+
+      const list_colls = Object.keys(appGlobal.config.list.modules);
+      const module_colls = Object.keys(appGlobal.config.module.modules);
+
+      list_colls.forEach((col) => {
+        router.get(`/${col}`, handler(col));
+      });
+
+      module_colls.forEach((col) => {
+        router.get(`/${col}/:id`, handlerOne(col));
+      });
+
+      module_colls.forEach((col) => {
+        router.post(`/${col}`, handlerUpdate(col));
+        router.put(`/${col}/:id`, handlerUpdate(col));
+        router.delete(`/${col}/:id`, handlerRemove(col));
+      });
+
+      next();
+    },
+    (next) => {
+      app.listen(process.env.PORT, () => {
+        console.log(`Example app listening on port ${process.env.PORT}!`);
+        next();
+      });
+    },
+  ], (err) => {
+    if (err) {
+      console.log(err);
+    }
+  });
+}

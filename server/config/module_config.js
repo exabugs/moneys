@@ -42,12 +42,7 @@ function resolve(fieldDef) {
   return fieldDef;
 }
 
-module.exports.config = (() => {
-  _.each(config.modules, (fieldDef) => {
-    return resolve(fieldDef);
-  });
-  return config;
-})();
+
 
 //
 // サーバのレスポンスjsonを適切な型に変換する
@@ -114,10 +109,20 @@ function outgoing(fieldDef, object) {
   }
 }
 
-module.exports.convert = (incom, fieldDef, object) => {
+const convert = (incom, fieldDef, object) => {
   if (incom) {
     return _convert(fieldDef, object, incomming);
   } else {
     return _convert(fieldDef, object, outgoing);
   }
+};
+
+module.exports.config = (db) => {
+  _.each(config.modules, (fieldDef) => {
+    return resolve(fieldDef);
+  });
+
+  config.convert = convert;
+
+  return config;
 };

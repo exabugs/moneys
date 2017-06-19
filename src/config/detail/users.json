@@ -1,5 +1,15 @@
 {
   "collection": "users",
+  "indexes": [
+    {
+      "index": {
+        "userName": 1
+      },
+      "option": {
+        "unique": true
+      }
+    }
+  ],
   "fieldDefs": [
     {
       "common": "group",

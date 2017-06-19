@@ -5,8 +5,6 @@ const async = require('async');
 
 const { ObjectId } = mongodb;
 
-process.env.CLUSTER = process.env.CLUSTER || 'frontend';
-
 const credentialProvider = new aws.CredentialProviderChain();
 const ecs = new aws.ECS({ credentialProvider });
 const ecr = new aws.ECR({ credentialProvider });
@@ -14,7 +12,14 @@ const ecr = new aws.ECR({ credentialProvider });
 
 class ECS {
 
-  constructor(db, subscribe) {
+  constructor(db, subscribe, param) {
+    this.region = param.region;
+    this.account = param.account;
+    this.cluster = param.cluster;
+    this.alb = param.alb;
+    this.domain = param.domain;
+
+
     this.accounts = db.collection('accounts');
     this.users = db.collection('users');
     subscribe('update', 'users', this.onUpdateUser, this);
@@ -25,53 +30,55 @@ class ECS {
   }
 
   // accounts 更新
-  onUpdateAccount(item, callback) {
+  onUpdateAccount(account, callback) {
     // account (契約) のイメージが更新された。
     // イメージの最新バージョンでタスクを全て更新する
   }
 
   // accounts 削除
-  onRemoveAccount(item, callback) {
+  onRemoveAccount(account, callback) {
 
   }
 
   // users 更新
-  onUpdateUser(item, callback) {
+  onUpdateUser(user, callback) {
     // タスク追加
-    this.createTask(item, (err, data) => {
+    this.createTask(user, (err, data) => {
       // 旧バージョンのタスク削除
       // : data.taskDefinition.family
-      this.deleteTask(item, 2, (err) => {
-        callback(err, item);
+      this.deleteTask(user, 2, (err) => {
+        callback(err, user);
       });
     });
   }
 
   // users 削除
-  onRemoveUser(item, callback) {
+  onRemoveUser(user, callback) {
     // タスク削除 (全バージョン)
-    this.deleteTask(item, 0, (err) => {
-      callback(err, item);
+    this.deleteTask(user, 0, (err) => {
+      callback(err, user);
     });
   }
 
   // ログイン
-  onLogin(item, callback) {
+  onLogin(session, callback) {
     // 必要数が 2 なら、何もしない
     // サービスが存在するなら、必要数 2 、タスク定義 最新 に更新する
     // サービスが存在しないなら、サービス作成
-    this.users.findOne({ _id: item.user._id }, (err, user) => {
+    this.users.findOne({ _id: session.user._id }, (err, user) => {
       if (err) {
         callback(err);
+      } else if (!user.account) {
+        return callback(null, session);
       } else {
         const desiredCount = 2;
-        this.updateService(user, { desiredCount }, err => {
+        this.updateService(user, { desiredCount }, (err) => {
           if (err) {
-            this.createService(user, { desiredCount }, err => {
-              callback(err, item);
+            this.createService(user, { desiredCount }, (err) => {
+              callback(err, session);
             });
           } else {
-            callback(err, item);
+            callback(err, session);
           }
         });
       }
@@ -79,9 +86,9 @@ class ECS {
   }
 
   // ログアウト
-  onLogout(item, callback) {
+  onLogout(session, callback) {
     // 必要数 0 に更新する
-    callback(null, item);
+    callback(null, session);
   }
 
   cleanUp() {
@@ -108,7 +115,7 @@ class ECS {
         this.image(user, next);
       },
       (image, next) => {
-        const ecrurl = [process.env.AWS_ACCOUNT, 'dkr', ecr.endpoint.host].join('.');
+        const ecrurl = [this.account, 'dkr', ecr.endpoint.host].join('.');
         const name = this.familyPrefix(user);
         const task = {
           family: name,
@@ -122,9 +129,9 @@ class ECS {
               logConfiguration: {
                 logDriver: 'awslogs',
                 options: {
-                  'awslogs-group': process.env.CLUSTER,
-                  'awslogs-region': process.env.AWS_REGION,
-                  'awslogs-stream-prefix': process.env.CLUSTER,
+                  'awslogs-group': this.clusterName,
+                  'awslogs-region': this.region,
+                  'awslogs-stream-prefix': this.clusterName,
                 },
               },
               mountPoints: [
@@ -137,6 +144,7 @@ class ECS {
                 { containerPort: 4000, protocol: 'tcp' },
               ],
               // user: 'STRING_VALUE',
+              DnsSearchDomains: [this.domain],
             },
           ],
           volumes: [
@@ -200,7 +208,7 @@ class ECS {
     // arn:aws:ecs:ap-northeast-1:663889673734:service/frontend-ECSTerminalService-UV3UFS2J2XG0
 
     var params = {
-      cluster: process.env.CLUSTER,
+      cluster: this.clusterName,
     };
     ecs.listServices(params, (err, data) => {
 
@@ -223,7 +231,7 @@ class ECS {
 
   updateService(user, { desiredCount, taskDefinition }, callback) {
     const params = {
-      cluster: process.env.CLUSTER,
+      cluster: this.clusterName,
       service: this.familyPrefix(user),
       desiredCount,
       taskDefinition,
@@ -237,7 +245,7 @@ class ECS {
   createService(item, { desiredCount }, callback) {
 
     const params = {
-      cluster: process.env.CLUSTER,
+      cluster: this.clusterName,
       desiredCount,
       serviceName: this.familyPrefix(item),
       taskDefinition: this.familyPrefix(item),
@@ -246,15 +254,15 @@ class ECS {
       //   maximumPercent: 0,
       //   minimumHealthyPercent: 0
       // },
-      // loadBalancers: [
-      //   {
-      //     containerName: 'STRING_VALUE',
-      //     containerPort: 0,
-      //     loadBalancerName: 'STRING_VALUE',
-      //     targetGroupArn: 'STRING_VALUE'
-      //   },
-      //   /* more items */
-      // ],
+      loadBalancers: [
+        {
+          containerName: 'STRING_VALUE',
+          containerPort: 0,
+          loadBalancerName: 'STRING_VALUE',
+          targetGroupArn: 'STRING_VALUE'
+        },
+        /* more items */
+      ],
       // placementConstraints: [
       //   {
       //     expression: 'STRING_VALUE',

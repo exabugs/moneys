@@ -1,7 +1,7 @@
 const fs = require('fs');
 
 const modules = {};
-module.exports.config = { modules };
+module.exports.config = (db) => ({ modules });
 
 const dir = __dirname + '/../../src/config/list/';
 const files = fs.readdirSync(dir);
