@@ -43,7 +43,6 @@ function resolve(fieldDef) {
 }
 
 
-
 //
 // サーバのレスポンスjsonを適切な型に変換する
 //
@@ -119,6 +118,11 @@ const convert = (incom, fieldDef, object) => {
 
 module.exports.config = (db) => {
   _.each(config.modules, (fieldDef) => {
+
+    _.each(fieldDef.indexes, (info) => {
+      db.createIndex(fieldDef.collection, info.index, info.option);
+    });
+
     return resolve(fieldDef);
   });
 
