@@ -129,9 +129,9 @@ class ECS {
               logConfiguration: {
                 logDriver: 'awslogs',
                 options: {
-                  'awslogs-group': this.clusterName,
+                  'awslogs-group': this.cluster,
                   'awslogs-region': this.region,
-                  'awslogs-stream-prefix': this.clusterName,
+                  'awslogs-stream-prefix': this.cluster,
                 },
               },
               mountPoints: [
@@ -144,7 +144,7 @@ class ECS {
                 { containerPort: 4000, protocol: 'tcp' },
               ],
               // user: 'STRING_VALUE',
-              DnsSearchDomains: [this.domain],
+              dnsSearchDomains: [this.domain],
             },
           ],
           volumes: [
@@ -162,7 +162,11 @@ class ECS {
         // サービスのタスク定義を更新
         const param = { taskDefinition: data.taskDefinition.taskDefinitionArn };
         this.updateService(user, param, (err) => {
-          next(err, data);
+          if (err && err.code === 'ServiceNotFoundException') {
+            next(null, data);
+          } else {
+            next(err, data);
+          }
         });
       },
     ], (err, data) => {
@@ -177,14 +181,18 @@ class ECS {
       for (let i = 0; i < n; i += 1) {
         arns.pop();
       }
-      async.eachSeries(arns, (arn, next) => {
-        const params = { taskDefinition: arn };
-        ecs.deregisterTaskDefinition(params, (err, data) => {
-          next(err);
-        }, (err) => {
-          callback(err);
+      if (arns.length) {
+        async.eachSeries(arns, (arn, next) => {
+          const params = { taskDefinition: arn };
+          ecs.deregisterTaskDefinition(params, (err, data) => {
+            next(err);
+          }, (err) => {
+            callback(err);
+          });
         });
-      });
+      } else {
+        callback(null);
+      }
     });
   }
 
@@ -208,7 +216,7 @@ class ECS {
     // arn:aws:ecs:ap-northeast-1:663889673734:service/frontend-ECSTerminalService-UV3UFS2J2XG0
 
     var params = {
-      cluster: this.clusterName,
+      cluster: this.cluster,
     };
     ecs.listServices(params, (err, data) => {
 
@@ -231,7 +239,7 @@ class ECS {
 
   updateService(user, { desiredCount, taskDefinition }, callback) {
     const params = {
-      cluster: this.clusterName,
+      cluster: this.cluster,
       service: this.familyPrefix(user),
       desiredCount,
       taskDefinition,
@@ -245,24 +253,27 @@ class ECS {
   createService(item, { desiredCount }, callback) {
 
     const params = {
-      cluster: this.clusterName,
+      cluster: this.cluster,
       desiredCount,
       serviceName: this.familyPrefix(item),
       taskDefinition: this.familyPrefix(item),
       clientToken: item._id.toString(),
+
       // deploymentConfiguration: {
       //   maximumPercent: 0,
       //   minimumHealthyPercent: 0
       // },
-      loadBalancers: [
-        {
-          containerName: 'STRING_VALUE',
-          containerPort: 0,
-          loadBalancerName: 'STRING_VALUE',
-          targetGroupArn: 'STRING_VALUE'
-        },
-        /* more items */
-      ],
+
+      // loadBalancers: [
+      //   {
+      //     containerName: 'STRING_VALUE',
+      //     containerPort: 0,
+      //     loadBalancerName: 'STRING_VALUE',
+      //     targetGroupArn: 'STRING_VALUE'
+      //   },
+      //   /* more items */
+      // ],
+
       // placementConstraints: [
       //   {
       //     expression: 'STRING_VALUE',
@@ -277,6 +288,8 @@ class ECS {
       //   },
       //   /* more items */
       // ],
+
+      // Role is required when configuring load-balancers for service
       // role: 'STRING_VALUE'
     };
     ecs.createService(params, (err, data) => {
