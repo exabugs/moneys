@@ -1,32 +1,65 @@
-const aws = require('aws-sdk');
+const AWS = require('aws-sdk');
 const mongodb = require('mongodb');
 const _ = require('underscore');
 const async = require('async');
 
 const { ObjectId } = mongodb;
 
-const credentialProvider = new aws.CredentialProviderChain();
-const ecs = new aws.ECS({ credentialProvider });
-const ecr = new aws.ECR({ credentialProvider });
+const CredentialProvider = new AWS.CredentialProviderChain();
+const CF = new AWS.CloudFormation({ CredentialProvider });
+const ECS = new AWS.ECS({ CredentialProvider });
+const ECR = new AWS.ECR({ CredentialProvider });
 
 
-class ECS {
+class ECSManager {
 
-  constructor(db, subscribe, param) {
-    this.region = param.region;
-    this.account = param.account;
-    this.cluster = param.cluster;
-    this.alb = param.alb;
-    this.domain = param.domain;
-
-
-    this.accounts = db.collection('accounts');
-    this.users = db.collection('users');
+  constructor(db, subscribe) {
+    this.db = {
+      accounts: db.collection('accounts'),
+      users: db.collection('users'),
+    };
     subscribe('update', 'users', this.onUpdateUser, this);
     subscribe('remove', 'users', this.onRemoveUser, this);
     subscribe('update', 'accounts', this.onUpdateAccount, this);
     subscribe('remove', 'accounts', this.onRemoveAccount, this);
     subscribe('login', 'sessions', this.onLogin, this);
+  }
+
+  initialize(cluster, callback) {
+    this.params = {
+      Cluster: cluster,
+      Region: process.env.AWS_REGION,
+      Domain: false,
+      AccountId: false,
+      ALB: false,
+    };
+    this.listExports(this.params, cluster, undefined, (err) => {
+      callback(err, this.params);
+    });
+  }
+
+  // CloudFormation で用意されている値を取得する
+  // aws からは以下の形式で取得できる
+  //   Name: <クラスタ名>-<キー名>
+  //   Value: 値
+  listExports(map, cluster, NextToken, callback) {
+    CF.listExports({ NextToken }, (err, data) => {
+      if (err) {
+        return callback(err);
+      } else {
+        data.Exports.forEach(obj => {
+          const info = obj.Name.split('-', 2);
+          if (info[0] === cluster && map[info[1]] !== undefined) {
+            map[info[1]] = obj.Value;
+          }
+        })
+        if (data.NextToken) {
+          setImmediate(this.listExports(map, cluster, data.NextToken, callback));
+        } else {
+          callback(null);
+        }
+      }
+    });
   }
 
   // accounts 更新
@@ -65,7 +98,7 @@ class ECS {
     // 必要数が 2 なら、何もしない
     // サービスが存在するなら、必要数 2 、タスク定義 最新 に更新する
     // サービスが存在しないなら、サービス作成
-    this.users.findOne({ _id: session.user._id }, (err, user) => {
+    this.db.users.findOne({ _id: session.user._id }, (err, user) => {
       if (err) {
         callback(err);
       } else if (!user.account) {
@@ -104,7 +137,7 @@ class ECS {
   }
 
   image(item, callback) {
-    this.accounts.findOne({ _id: item.account._id }, (err, result) => {
+    this.db.accounts.findOne({ _id: item.account._id }, (err, result) => {
       callback(err, result.image);
     });
   }
@@ -115,7 +148,7 @@ class ECS {
         this.image(user, next);
       },
       (image, next) => {
-        const ecrurl = [this.account, 'dkr', ecr.endpoint.host].join('.');
+        const ecrurl = [this.params.AccountId, 'dkr', ECR.endpoint.host].join('.');
         const name = this.familyPrefix(user);
         const task = {
           family: name,
@@ -129,9 +162,9 @@ class ECS {
               logConfiguration: {
                 logDriver: 'awslogs',
                 options: {
-                  'awslogs-group': this.cluster,
-                  'awslogs-region': this.region,
-                  'awslogs-stream-prefix': this.cluster,
+                  'awslogs-group': this.params.Cluster,
+                  'awslogs-region': this.params.Region,
+                  'awslogs-stream-prefix': this.params.Cluster,
                 },
               },
               mountPoints: [
@@ -144,7 +177,7 @@ class ECS {
                 { containerPort: 4000, protocol: 'tcp' },
               ],
               // user: 'STRING_VALUE',
-              dnsSearchDomains: [this.domain],
+              dnsSearchDomains: [this.params.Domain],
             },
           ],
           volumes: [
@@ -154,7 +187,7 @@ class ECS {
             },
           ],
         };
-        ecs.registerTaskDefinition(task, (err, data) => {
+        ECS.registerTaskDefinition(task, (err, data) => {
           next(err, data);
         });
       },
@@ -176,23 +209,19 @@ class ECS {
 
   deleteTask(item, n, callback) {
     const params = { familyPrefix: this.familyPrefix(item) };
-    ecs.listTaskDefinitions(params, (err, data) => {
+    ECS.listTaskDefinitions(params, (err, data) => {
       const arns = data.taskDefinitionArns;
       for (let i = 0; i < n; i += 1) {
         arns.pop();
       }
-      if (arns.length) {
-        async.eachSeries(arns, (arn, next) => {
-          const params = { taskDefinition: arn };
-          ecs.deregisterTaskDefinition(params, (err, data) => {
-            next(err);
-          }, (err) => {
-            callback(err);
-          });
+      async.eachSeries(arns, (arn, next) => {
+        const params = { taskDefinition: arn };
+        ECS.deregisterTaskDefinition(params, (err, data) => {
+          next(err);
         });
-      } else {
-        callback(null);
-      }
+      }, (err) => {
+        callback(err);
+      });
     });
   }
 
@@ -216,13 +245,13 @@ class ECS {
     // arn:aws:ecs:ap-northeast-1:663889673734:service/frontend-ECSTerminalService-UV3UFS2J2XG0
 
     var params = {
-      cluster: this.cluster,
+      cluster: this.params.Cluster,
     };
-    ecs.listServices(params, (err, data) => {
+    ECS.listServices(params, (err, data) => {
 
       const params = { familyPrefix: familyPrefix(item) };
 
-      ecs.listTaskDefinitions(params, (err, data) => {
+      ECS.listTaskDefinitions(params, (err, data) => {
         //   callback(null);
         // });
 
@@ -239,12 +268,12 @@ class ECS {
 
   updateService(user, { desiredCount, taskDefinition }, callback) {
     const params = {
-      cluster: this.cluster,
+      cluster: this.params.Cluster,
       service: this.familyPrefix(user),
       desiredCount,
       taskDefinition,
     };
-    ecs.updateService(params, (err, data) => {
+    ECS.updateService(params, (err, data) => {
       console.log(JSON.stringify(data));
       callback(err, data);
     });
@@ -253,7 +282,7 @@ class ECS {
   createService(item, { desiredCount }, callback) {
 
     const params = {
-      cluster: this.cluster,
+      cluster: this.params.Cluster,
       desiredCount,
       serviceName: this.familyPrefix(item),
       taskDefinition: this.familyPrefix(item),
@@ -292,7 +321,7 @@ class ECS {
       // Role is required when configuring load-balancers for service
       // role: 'STRING_VALUE'
     };
-    ecs.createService(params, (err, data) => {
+    ECS.createService(params, (err, data) => {
       callback(err, data);
     });
   }
@@ -302,4 +331,4 @@ class ECS {
   }
 
 }
-module.exports = ECS;
+module.exports = ECSManager;

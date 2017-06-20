@@ -23,7 +23,6 @@ process.env.DB_NAME = process.env.DB_NAME || 'master';
 
 process.env.AWS_CLUSTER = process.env.AWS_CLUSTER || 'frontend';
 process.env.AWS_ALB = process.env.AWS_ALB || 'frontend';
-process.env.DOMAIN_INTERNAL = process.env.DOMAIN_INTERNAL || 'mongodb.internal';
 
 const credentialProvider = new aws.CredentialProviderChain();
 const cognitoidentity = new aws.CognitoIdentity({ credentialProvider });
@@ -635,20 +634,24 @@ if (!process.env.AWS_BUCKET) {
       // session
       appGlobal.sessions = new Sessions(db);
 
-      // ecs
-      const param = {
-        account: process.env.AWS_ACCOUNT,
-        region: process.env.AWS_REGION,
-        cluster: process.env.AWS_CLUSTER,
-        alb: process.env.AWS_ALB,
-        domain: process.env.DOMAIN_INTERNAL,
-      };
-      appGlobal.ecs = new ECS(db, subscribe, param);
-
       // initial
       initial(db, ObjectId, createHmac);
 
       next(null, db);
+    },
+    (db, next) => {
+      // ecs
+      // const param = {
+      //   account: process.env.AWS_ACCOUNT,
+      //   region: process.env.AWS_REGION,
+      //   cluster: process.env.AWS_CLUSTER,
+      //   alb: process.env.AWS_ALB,
+      // };
+      appGlobal.ecs = new ECS(db, subscribe);
+
+      appGlobal.ecs.initialize(process.env.AWS_CLUSTER, (err) => {
+        next(err, db);
+      });
     },
     (db, next) => {
       appGlobal.config = {
