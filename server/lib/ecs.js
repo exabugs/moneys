@@ -45,14 +45,14 @@ class ECSManager {
   listExports(map, cluster, NextToken, callback) {
     CF.listExports({ NextToken }, (err, data) => {
       if (err) {
-        return callback(err);
+        callback(err);
       } else {
         data.Exports.forEach(obj => {
           const info = obj.Name.split('-', 2);
           if (info[0] === cluster && map[info[1]] !== undefined) {
             map[info[1]] = obj.Value;
           }
-        })
+        });
         if (data.NextToken) {
           setImmediate(this.listExports(map, cluster, data.NextToken, callback));
         } else {

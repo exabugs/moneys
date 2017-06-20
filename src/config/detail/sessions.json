@@ -1,5 +1,15 @@
 {
   "collection": "sessions",
+  "indexes": [
+    {
+      "index": {
+        "expires": 1
+      },
+      "option": {
+        "expireAfterSeconds": 3600
+      }
+    }
+  ],
   "fieldDefs": [
     {
       "type": "TextField",
