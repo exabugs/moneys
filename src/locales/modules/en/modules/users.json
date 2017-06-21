@@ -1,11 +1,11 @@
 {
   "primaryGroup": "主所属",
   "name": "名前",
+  "account": "アカウント",
   "roles": "ロール",
   "userName": "ログインID",
   "order": "ソート順",
   "email": "メール",
   "timezone": "タイムゾーン",
-  "extend.active": "有効",
   "updatedAt": "更新日時"
 }
