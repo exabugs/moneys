@@ -92,6 +92,20 @@
       }
     ]
   },
+  "account": {
+    "selector": "List",
+    "collection": "accounts",
+    "fieldDefs": [
+      {
+        "type": "TextField",
+        "key": "name"
+      },
+      {
+        "type": "TextField",
+        "key": "key"
+      }
+    ]
+  },
   "valid": {
     "type": "Toggle",
     "itemsKey": "valid",

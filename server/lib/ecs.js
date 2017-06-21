@@ -76,12 +76,16 @@ class ECSManager {
   // users 更新
   onUpdateUser(user, callback) {
     // タスク追加
-    this.createTask(user, (err, data) => {
+    this.createTask(user, (err) => {
       // 旧バージョンのタスク削除
       // : data.taskDefinition.family
-      this.deleteTask(user, 2, (err) => {
+      if (err) {
         callback(err, user);
-      });
+      } else {
+        this.deleteTask(user, 2, (err) => {
+          callback(err, user);
+        });
+      }
     });
   }
 
@@ -145,7 +149,11 @@ class ECSManager {
   createTask(user, callback) {
     async.waterfall([
       (next) => {
-        this.image(user, next);
+        if (user.account) {
+          this.image(user, next);
+        } else {
+          next('NO ACCOUNT');
+        }
       },
       (image, next) => {
         const ecrurl = [this.params.AccountId, 'dkr', ECR.endpoint.host].join('.');

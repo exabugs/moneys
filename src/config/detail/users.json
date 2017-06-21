@@ -12,6 +12,10 @@
   ],
   "fieldDefs": [
     {
+      "common": "account",
+      "key": "account"
+    },
+    {
       "common": "group",
       "key": "primaryGroup"
     },

@@ -118,7 +118,8 @@ const authUser = (userName, pass, clientKey, callback) => {
   const users = db.collection('users');
   const client = { key: clientKey };
   const password = createHmac(pass);
-  authe.findOne({ userName }, (err, authe) => {
+  const sort = { createdAt: -1 };
+  authe.findOne({ 'user.userName': userName }, { sort }, (err, authe) => {
     if (err) {
       callback(err);
     } else if (!authe) {
@@ -386,19 +387,24 @@ function update(user, collname, data, id, callback) {
 
   const detail = appGlobal.config.module.convert(true, fieldsDef, data);
 
-  detail.updatedAt = new Date();
-  detail.updatedBy = { name: user.name, _id: user._id };
+  const updatedAt = new Date();
+  const updatedBy = { name: user.name, _id: user._id };
 
   const initial = {};
   // setInitial(detail, initial, 'owner', user.primaryGroup);
-  setInitial(detail, initial, 'createdBy', detail.updatedBy);
-  setInitial(detail, initial, 'createdAt', detail.updatedAt);
+  setInitial(detail, initial, 'createdBy', updatedBy);
+  setInitial(detail, initial, 'createdAt', updatedAt);
 
   let _id;
   if (isObjectId(id)) {
+    // 更新
     _id = new ObjectId(id);
+    detail.updatedAt = updatedAt;
+    detail.updatedBy = updatedBy;
   } else {
+    // 新規
     _id = new ObjectId();
+    detail.password && (detail.password = createHmac(detail.password));
   }
   delete detail._id;
 
