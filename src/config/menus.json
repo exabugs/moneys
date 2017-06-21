@@ -20,6 +20,11 @@
     "icon": "communication/comment"
   },
   {
+    "link": "/modules/passwords",
+    "text": "passwords",
+    "icon": "communication/comment"
+  },
+  {
     "link": "/modules/sessions",
     "text": "sessions",
     "icon": "communication/comment"

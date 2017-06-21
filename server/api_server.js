@@ -390,7 +390,7 @@ function update(user, collname, data, id, callback) {
   detail.updatedBy = { name: user.name, _id: user._id };
 
   const initial = {};
-  setInitial(detail, initial, 'owner', user.primaryGroup);
+  // setInitial(detail, initial, 'owner', user.primaryGroup);
   setInitial(detail, initial, 'createdBy', detail.updatedBy);
   setInitial(detail, initial, 'createdAt', detail.updatedAt);
 
@@ -633,22 +633,10 @@ if (!process.env.AWS_BUCKET) {
     (db, next) => {
       // session
       appGlobal.sessions = new Sessions(db);
-
-      // initial
-      initial(db, ObjectId, createHmac);
-
       next(null, db);
     },
     (db, next) => {
-      // ecs
-      // const param = {
-      //   account: process.env.AWS_ACCOUNT,
-      //   region: process.env.AWS_REGION,
-      //   cluster: process.env.AWS_CLUSTER,
-      //   alb: process.env.AWS_ALB,
-      // };
       appGlobal.ecs = new ECS(db, subscribe);
-
       appGlobal.ecs.initialize(process.env.AWS_CLUSTER, (err) => {
         next(err, db);
       });
@@ -676,7 +664,12 @@ if (!process.env.AWS_BUCKET) {
         router.delete(`/${col}/:id`, handlerRemove(col));
       });
 
-      next();
+      next(null, db);
+    },
+    (db, next) => {
+      // initial
+      initial(db, ObjectId, createHmac);
+      next(null);
     },
     (next) => {
       app.listen(process.env.PORT, () => {

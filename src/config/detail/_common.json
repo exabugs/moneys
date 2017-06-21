@@ -85,6 +85,10 @@
       {
         "type": "TextField",
         "key": "name"
+      },
+      {
+        "type": "TextField",
+        "key": "userName"
       }
     ]
   },

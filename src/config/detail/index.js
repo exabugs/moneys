@@ -4,6 +4,7 @@ import moment from 'moment';
 import accounts from './accounts.json';
 import groups from './groups.json';
 import users from './users.json';
+import passwords from './passwords.json';
 import sessions from './sessions.json';
 import files from './files.json';
 
@@ -14,6 +15,7 @@ const config = {
     accounts,
     groups,
     users,
+    passwords,
     sessions,
     files,
   },

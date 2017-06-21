@@ -44,7 +44,15 @@ class Session {
         if (!token) {
           reject(ERROR_INVALID_TOKEN);
         } else {
-          resolve(this.find(token));
+          // resolve(this.find(token));
+          this.find(token).then((session) => {
+            const $set = { accessedAt: new Date() };
+            this.sessions.updateOne({ _id: session._id }, { $set }, (err) => {
+              err ? reject(err) : resolve(session);
+            });
+          }).catch((err) => {
+            reject(err);
+          });
         }
       }
     });
