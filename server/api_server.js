@@ -127,7 +127,7 @@ const authUser = (userName, pass, clientKey, callback) => {
     } else if (authe.password !== password) {
       callback({ status: 404 });
     } else {
-      const fields = ['name', 'userName', 'primaryGroup'];
+      const fields = ['name', 'userName', 'primaryGroup', 'account'];
       users.findOne({ userName }, toObj1(fields), (err, user) => {
         if (err) {
           callback(err);
@@ -135,8 +135,14 @@ const authUser = (userName, pass, clientKey, callback) => {
           callback({ status: 404 });
         } else {
           // セッション生成
-          appGlobal.sessions.create(user, client).then((token) => {
-            token.user = user;
+          const account = user.account;
+          const param = {
+            user: _.pick(user, ['_id', 'name', 'userName']),
+            account: _.pick(account, ['_id', 'name', 'key']),
+            client: _.pick(client, ['_id']),
+            group: _.pick(user.primaryGroup, ['_id', 'name']),
+          };
+          appGlobal.sessions.create(param).then((token) => {
             callback(null, token);
           }).catch((err2) => {
             callback(err2);
@@ -144,6 +150,28 @@ const authUser = (userName, pass, clientKey, callback) => {
         }
       });
     }
+  });
+};
+
+setInterval(() => {
+  console.log('auto logout');
+  const coll = appGlobal.db.collection('sessions');
+  const limit = new Date(Date.now() - 60 * 1000);
+  coll.find({ accessedAt: { $lt: limit } }).toArray((err, result) => {
+    result.forEach(item => {
+      console.log(JSON.stringify(item));
+      logout(item);
+    });
+  });
+}, 6 * 1000);
+
+const logout = (session) => {
+  async.waterfall([
+    (next) => {
+      publish('logout', 'sessions', session, next);
+    },
+  ], (err) => {
+    err && console.log(err);
   });
 };
 
@@ -160,7 +188,9 @@ router.post('/login', (req, res) => {
       });
     },
     (data, next) => {
-      publish('login', 'sessions', data, next);
+      publish('login', 'sessions', data.session, (err) => {
+        next(err, data);
+      });
     },
     (data, next) => {
       if (!process.env.AWS_POOL_ID) {

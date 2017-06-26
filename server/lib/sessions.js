@@ -10,27 +10,24 @@ class Session {
   constructor(db) {
     this.db = db; // Set after DB connect succeeded.
     this.sessions = db.collection('sessions');
-    this.tokenLength = 32;
+    this.tokenLength = 16;
     this.tokenValidity = 24 * 60 * 60 * 1000; // 24h
   }
 
   // Create session.
-  create(user, client) {
+  create(param) {
     return new Promise((resolve, reject) => {
-      if (!user) {
-        reject(ERROR_REALM);
-      } else {
-        const token = crypto.randomBytes(this.tokenLength).toString('hex');
-        const expires = new Date(Date.now() + this.tokenValidity);
-        const session = { _id: token, user, client, expires };
-        this.sessions.insertOne(session, (err) => {
-          if (err) {
-            reject(err);
-          } else {
-            resolve({ token_type: Bearer, token });
-          }
-        });
-      }
+      const token = crypto.randomBytes(this.tokenLength).toString('hex');
+      const expires = new Date(Date.now() + this.tokenValidity);
+      const session = { _id: token, expires };
+      Object.assign(session, param);
+      this.sessions.insertOne(session, (err) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve({ token_type: Bearer, token, session });
+        }
+      });
     });
   }
 

@@ -10,6 +10,7 @@ const CF = new AWS.CloudFormation({ CredentialProvider });
 const ECS = new AWS.ECS({ CredentialProvider });
 const ECR = new AWS.ECR({ CredentialProvider });
 
+const APP = 'webideadmin';
 
 class ECSManager {
 
@@ -23,6 +24,7 @@ class ECSManager {
     subscribe('update', 'accounts', this.onUpdateAccount, this);
     subscribe('remove', 'accounts', this.onRemoveAccount, this);
     subscribe('login', 'sessions', this.onLogin, this);
+    subscribe('logout', 'sessions', this.onLogout, this);
   }
 
   initialize(cluster, callback) {
@@ -75,26 +77,36 @@ class ECSManager {
 
   // users 更新
   onUpdateUser(user, callback) {
-    // タスク追加
-    this.createTask(user, (err) => {
-      // 旧バージョンのタスク削除
-      // : data.taskDefinition.family
-      if (err) {
-        callback(err, user);
-      } else {
-        this.deleteTask(user, 2, (err) => {
+    const account = user.account;
+    if (!account) {
+      callback(null);
+    } else {
+      // タスク追加
+      this.createTask({ account, user }, (err) => {
+        // 旧バージョンのタスク削除
+        // : data.taskDefinition.family
+        if (err) {
           callback(err, user);
-        });
-      }
-    });
+        } else {
+          this.deleteTask({ account, user }, 2, (err) => {
+            callback(err, user);
+          });
+        }
+      });
+    }
   }
 
   // users 削除
   onRemoveUser(user, callback) {
-    // タスク削除 (全バージョン)
-    this.deleteTask(user, 0, (err) => {
-      callback(err, user);
-    });
+    const account = user.account;
+    if (!account) {
+      callback(null);
+    } else {
+      // タスク削除 (全バージョン)
+      this.deleteTask(user, 0, (err) => {
+        callback(err, user);
+      });
+    }
   }
 
   // ログイン
@@ -102,30 +114,34 @@ class ECSManager {
     // 必要数が 2 なら、何もしない
     // サービスが存在するなら、必要数 2 、タスク定義 最新 に更新する
     // サービスが存在しないなら、サービス作成
-    this.db.users.findOne({ _id: session.user._id }, (err, user) => {
-      if (err) {
-        callback(err);
-      } else if (!user.account) {
-        return callback(null, session);
-      } else {
-        const desiredCount = 2;
-        this.updateService(user, { desiredCount }, (err) => {
-          if (err) {
-            this.createService(user, { desiredCount }, (err) => {
-              callback(err, session);
-            });
-          } else {
+    if (!session.user || !session.account || !session.account._id) {
+      return callback(null, session);
+    } else {
+      const desiredCount = 2;
+      this.updateService(session, { desiredCount }, (err) => {
+        if (err && err.code === 'ServiceNotFoundException') {
+          this.createService(session, { desiredCount }, (err) => {
+            err && console.log(err);
             callback(err, session);
-          }
-        });
-      }
-    });
+          });
+        } else {
+          callback(err, session);
+        }
+      });
+    }
   }
 
   // ログアウト
   onLogout(session, callback) {
     // 必要数 0 に更新する
-    callback(null, session);
+    if (!session.user || !session.account) {
+      return callback(null, session);
+    } else {
+      const desiredCount = 0;
+      this.updateService(session, { desiredCount }, (err) => {
+        callback(null, session);
+      });
+    }
   }
 
   cleanUp() {
@@ -133,11 +149,14 @@ class ECSManager {
     // タスクは最新だけ残して、他は削除
   }
 
-  //
+  // Service
+  serviceName({ account, user, _id }) {
+    return [APP, account.key, user.userName, _id].join('_');
+  }
 
   // Task
-  familyPrefix(item) {
-    return [item.account.key, item.userName].join('_');
+  familyPrefix({ account, user }) {
+    return [APP, account.key, user.userName].join('_');
   }
 
   image(item, callback) {
@@ -146,7 +165,7 @@ class ECSManager {
     });
   }
 
-  createTask(user, callback) {
+  createTask({ account, user }, callback) {
     async.waterfall([
       (next) => {
         if (user.account) {
@@ -157,7 +176,7 @@ class ECSManager {
       },
       (image, next) => {
         const ecrurl = [this.params.AccountId, 'dkr', ECR.endpoint.host].join('.');
-        const name = this.familyPrefix(user);
+        const name = this.familyPrefix({ account, user });
         const task = {
           family: name,
           networkMode: 'bridge',
@@ -190,7 +209,7 @@ class ECSManager {
           ],
           volumes: [
             {
-              host: { sourcePath: `/data/${user.account.key}/${user.userName}` },
+              host: { sourcePath: `/data/${account.key}/${user.userName}` },
               name: 'USER_DATA',
             },
           ],
@@ -202,7 +221,7 @@ class ECSManager {
       (data, next) => {
         // サービスのタスク定義を更新
         const param = { taskDefinition: data.taskDefinition.taskDefinitionArn };
-        this.updateService(user, param, (err) => {
+        this.updateService({ account, user }, param, (err) => {
           if (err && err.code === 'ServiceNotFoundException') {
             next(null, data);
           } else {
@@ -215,8 +234,8 @@ class ECSManager {
     });
   }
 
-  deleteTask(item, n, callback) {
-    const params = { familyPrefix: this.familyPrefix(item) };
+  deleteTask({ account, user }, n, callback) {
+    const params = { familyPrefix: this.familyPrefix({ account, user }) };
     ECS.listTaskDefinitions(params, (err, data) => {
       const arns = data.taskDefinitionArns;
       for (let i = 0; i < n; i += 1) {
@@ -248,7 +267,7 @@ class ECSManager {
   //   });
   // }
 
-  listServices(item, callback) {
+  listServices({ account, user }, callback) {
     // service arn
     // arn:aws:ecs:ap-northeast-1:663889673734:service/frontend-ECSTerminalService-UV3UFS2J2XG0
 
@@ -257,7 +276,7 @@ class ECSManager {
     };
     ECS.listServices(params, (err, data) => {
 
-      const params = { familyPrefix: familyPrefix(item) };
+      const params = { familyPrefix: familyPrefix({ account, user }) };
 
       ECS.listTaskDefinitions(params, (err, data) => {
         //   callback(null);
@@ -274,10 +293,14 @@ class ECSManager {
   }
 
 
-  updateService(user, { desiredCount, taskDefinition }, callback) {
+  // 変更操作
+  //   必要サービス数 : desiredCount
+  //   タスク定義    : taskDefinition
+  updateService({ user, account, _id }, { desiredCount, taskDefinition }, callback) {
+
     const params = {
       cluster: this.params.Cluster,
-      service: this.familyPrefix(user),
+      service: this.serviceName({ account, user, _id }),
       desiredCount,
       taskDefinition,
     };
@@ -287,14 +310,14 @@ class ECSManager {
     });
   }
 
-  createService(item, { desiredCount }, callback) {
+  createService({ user, account, _id }, { desiredCount }, callback) {
 
     const params = {
       cluster: this.params.Cluster,
       desiredCount,
-      serviceName: this.familyPrefix(item),
-      taskDefinition: this.familyPrefix(item),
-      clientToken: item._id.toString(),
+      serviceName: this.serviceName({ account, user, _id }),
+      taskDefinition: this.familyPrefix({ account, user }),
+      clientToken: _id.toString(),
 
       // deploymentConfiguration: {
       //   maximumPercent: 0,

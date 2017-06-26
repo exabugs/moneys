@@ -13,11 +13,12 @@ export function* watchDoLogin(params) {
     yield put(loginFailer(params));
   } else {
     console.log(data);
+    const { session } = data;
     const result = {
-      userName: data.user.userName,
+      userName: session.user.userName,
       token: data.token,
       token_type: data.token_type,
-      primaryGroup: data.user.primaryGroup._id,
+      primaryGroup: session.group._id,
     };
     yield put(loginSuccess(result));
     path = yield select(state => state.session.path);
