@@ -68,6 +68,21 @@ class ECSManager {
   onUpdateAccount(account, callback) {
     // account (契約) のイメージが更新された。
     // イメージの最新バージョンでタスクを全て更新する
+    const cond = { 'account._id': account._id };
+    this.db.users.find(cond).toArray((err, users) => {
+      if (err) {
+        callback(err);
+      } else {
+        async.eachSeries(users, (user, next) => {
+          this.createTask({ account, user }, (err) => {
+            err && console.log(err);
+            next(err);
+          });
+        }, (err) => {
+          callback(err);
+        });
+      }
+    });
   }
 
   // accounts 削除
@@ -159,8 +174,8 @@ class ECSManager {
     return [APP, account.key, user.userName].join('_');
   }
 
-  image(item, callback) {
-    this.db.accounts.findOne({ _id: item.account._id }, (err, result) => {
+  image({ account }, callback) {
+    this.db.accounts.findOne({ _id: account._id }, (err, result) => {
       callback(err, result.image);
     });
   }
@@ -168,8 +183,8 @@ class ECSManager {
   createTask({ account, user }, callback) {
     async.waterfall([
       (next) => {
-        if (user.account) {
-          this.image(user, next);
+        if (account) {
+          this.image({ account }, next);
         } else {
           next('NO ACCOUNT');
         }
@@ -198,7 +213,7 @@ class ECSManager {
                 { containerPath: '/data', sourceVolume: 'USER_DATA' },
               ],
               environment: [
-                { name: 'PORT', value: '4000' },
+                { name: 'PORT', value: '4000' }, // Value must be string.
               ],
               portMappings: [
                 { containerPort: 4000, protocol: 'tcp' },
