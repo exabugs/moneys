@@ -159,7 +159,6 @@ setInterval(() => {
   const limit = new Date(Date.now() - 60 * 1000);
   coll.find({ accessedAt: { $lt: limit } }).toArray((err, result) => {
     result.forEach(item => {
-      console.log(JSON.stringify(item));
       logout(item);
     });
   });
