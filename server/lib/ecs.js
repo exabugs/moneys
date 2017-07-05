@@ -35,6 +35,7 @@ class ECSManager {
       Domain: false,
       AccountId: false,
       ALB: false,
+      NFS: '10.6.10.225/jp.co.dreamarts.jcomsurvey-sakurai/S3',
     };
     this.listExports(this.params, cluster, undefined, (err) => {
       callback(err, this.params);
@@ -253,7 +254,10 @@ class ECSManager {
           ],
           volumes: [
             {
-              host: { sourcePath: `/data/${account.key}/${user.userName}` },
+              // host: { sourcePath: `/data/${account.key}/${user.userName}` },
+              // host: { sourcePath: '10.6.10.225/jp.co.dreamarts.jcomsurvey-sakurai/S3' },
+              // host: { sourcePath: `${this.params.NFS}/IDE/${account.key}/${user.userName}` },
+              host: { sourcePath: `${this.params.NFS}` },
               name: 'USER_DATA',
             },
           ],
