@@ -2,6 +2,7 @@ const AWS = require('aws-sdk');
 const mongodb = require('mongodb');
 const _ = require('underscore');
 const async = require('async');
+const fs = require('fs-extra')
 
 const { ObjectId } = mongodb;
 
@@ -10,9 +11,49 @@ const CF = new AWS.CloudFormation({ CredentialProvider });
 const ECS = new AWS.ECS({ CredentialProvider });
 const ECR = new AWS.ECR({ CredentialProvider });
 
+const S3 = new AWS.S3({ CredentialProvider });
+const SG = new AWS.StorageGateway({ CredentialProvider });
+
 const APP = 'webideadmin';
 
 class ECSManager {
+
+  // Bucket
+  bucketKey(account, user) {
+    const array = ['IDE', account.key];
+    user && array.push(user.userName);
+    // 末尾の / は タスク定義の volume では必要なし。
+    // (S3でディレクトリを作成する場合には必要)
+    // array.push('');
+    return array.join('/');
+  }
+
+  //
+  // mount_nfs -o vers=3,nolock -v 13.112.217.50:/jp.co.dreamarts.jcomsurvey-sakurai nfs
+  //
+  bucketCreateFolder(account, user, callback) {
+    // const params = {
+    //   Bucket: this.params.Bucket,
+    //   // Key: `${account.key}/${user.userName}/`,
+    //   Key: this.bucketKey(account, user),
+    // };
+    // S3.putObject(params, (err) => {
+    //   if (err) {
+    //     console.log(err);
+    //     callback(err);
+    //   } else {
+    //     const FileShareARN = 'arn:aws:storagegateway:ap-northeast-1:663889673734:share/share-EE9E7D8C';
+    //     SG.refreshCache({ FileShareARN }, (err) => {
+    //       err && console.log(err);
+    //       callback(err);
+    //     });
+    //   }
+    // });
+    const dir = [this.params.NFS, this.bucketKey(account, user)].join('/');
+    fs.ensureDir(dir, (err) => {
+      callback(err);
+    });
+  }
 
   constructor(db, subscribe) {
     this.db = {
@@ -35,7 +76,11 @@ class ECSManager {
       Domain: false,
       AccountId: false,
       ALB: false,
-      NFS: '10.6.10.225/jp.co.dreamarts.jcomsurvey-sakurai/S3',
+      // NFS: '10.6.10.225/jp.co.dreamarts.jcomsurvey-sakurai/S3',
+      StorageGW: '10.6.10.225',
+      // StorageGW でファイル共有登録されているバケット
+      Bucket: 'jp.co.dreamarts.jcomsurvey-sakurai',
+      NFS: `${__dirname}/../../nfs`, // ローカルNFSマウントポイント (自信がvolumeで与えられる)
     };
     this.listExports(this.params, cluster, undefined, (err) => {
       callback(err, this.params);
@@ -74,22 +119,33 @@ class ECSManager {
 
   // accounts 更新
   onUpdateAccount(account, callback) {
-    // account (契約) のイメージが更新された。
-    // イメージの最新バージョンでタスクを全て更新する
-    const cond = { 'account._id': account._id };
-    this.db.users.find(cond).toArray((err, users) => {
-      if (err) {
-        callback(err);
-      } else {
-        async.eachSeries(users, (user, next) => {
-          this.createTask({ account, user }, (err) => {
-            err && console.log(err);
-            next(err);
-          });
-        }, (err) => {
-          callback(err);
+    async.waterfall([
+      (next) => {
+        this.bucketCreateFolder(account, null, (err) => {
+          next(err);
         });
-      }
+      },
+      (next) => {
+        // account (契約) のイメージが更新された。
+        // イメージの最新バージョンでタスクを全て更新する
+        const cond = { 'account._id': account._id };
+        this.db.users.find(cond).toArray((err, users) => {
+          if (err) {
+            callback(err);
+          } else {
+            async.eachSeries(users, (user, next) => {
+              this.createTask({ account, user }, (err) => {
+                err && console.log(err);
+                next(err);
+              });
+            }, (err) => {
+              next(err);
+            });
+          }
+        });
+      },
+    ], (err) => {
+      callback(err);
     });
   }
 
@@ -104,17 +160,28 @@ class ECSManager {
     if (!account) {
       callback(null);
     } else {
-      // タスク追加
-      this.createTask({ account, user }, (err) => {
-        // 旧バージョンのタスク削除
-        // : data.taskDefinition.family
-        if (err) {
-          callback(err, user);
-        } else {
-          this.deleteTask({ account, user }, 2, (err) => {
-            callback(err, user);
+      async.waterfall([
+        (next) => {
+          this.bucketCreateFolder(account, user, (err) => {
+            next(err);
           });
-        }
+        },
+        (next) => {
+          // タスク追加
+          this.createTask({ account, user }, (err) => {
+            // 旧バージョンのタスク削除
+            // : data.taskDefinition.family
+            if (err) {
+              next(err);
+            } else {
+              this.deleteTask({ account, user }, 2, (err) => {
+                next(err);
+              });
+            }
+          });
+        },
+      ], (err) => {
+        callback(err, user);
       });
     }
   }
@@ -257,7 +324,7 @@ class ECSManager {
               // host: { sourcePath: `/data/${account.key}/${user.userName}` },
               // host: { sourcePath: '10.6.10.225/jp.co.dreamarts.jcomsurvey-sakurai/S3' },
               // host: { sourcePath: `${this.params.NFS}/IDE/${account.key}/${user.userName}` },
-              host: { sourcePath: `${this.params.NFS}` },
+              host: { sourcePath: `${this.params.StorageGW}/${this.params.Bucket}/${this.bucketKey(account, user)}` },
               name: 'USER_DATA',
             },
           ],
