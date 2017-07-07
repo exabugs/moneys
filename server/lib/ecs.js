@@ -20,7 +20,7 @@ class ECSManager {
 
   // Bucket
   bucketKey(account, user) {
-    const array = ['IDE', account.key];
+    const array = [APP, account.key];
     user && array.push(user.userName);
     // 末尾の / は タスク定義の volume では必要なし。
     // (S3でディレクトリを作成する場合には必要)
@@ -80,7 +80,7 @@ class ECSManager {
       StorageGW: '10.6.10.225',
       // StorageGW でファイル共有登録されているバケット
       Bucket: 'jp.co.dreamarts.jcomsurvey-sakurai',
-      NFS: `${__dirname}/../../nfs`, // ローカルNFSマウントポイント (自信がvolumeで与えられる)
+      NFS: '/Users/dreamarts/WebstormProjects/webide_admin/nfs', // ローカルNFSマウントポイント (自信がvolumeで与えられる)
     };
     this.listExports(this.params, cluster, undefined, (err) => {
       callback(err, this.params);
@@ -321,9 +321,6 @@ class ECSManager {
           ],
           volumes: [
             {
-              // host: { sourcePath: `/data/${account.key}/${user.userName}` },
-              // host: { sourcePath: '10.6.10.225/jp.co.dreamarts.jcomsurvey-sakurai/S3' },
-              // host: { sourcePath: `${this.params.NFS}/IDE/${account.key}/${user.userName}` },
               host: { sourcePath: `${this.params.StorageGW}/${this.params.Bucket}/${this.bucketKey(account, user)}` },
               name: 'USER_DATA',
             },

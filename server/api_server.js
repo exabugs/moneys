@@ -156,13 +156,13 @@ const authUser = (userName, pass, clientKey, callback) => {
 setInterval(() => {
   console.log('auto logout');
   const coll = appGlobal.db.collection('sessions');
-  const limit = new Date(Date.now() - 60 * 1000);
+  const limit = new Date(Date.now() - 60 * 15 * 1000);
   coll.find({ accessedAt: { $lt: limit } }).toArray((err, result) => {
     result.forEach(item => {
       logout(item);
     });
   });
-}, 6 * 1000);
+}, 10 * 1000);
 
 const logout = (session) => {
   async.waterfall([
