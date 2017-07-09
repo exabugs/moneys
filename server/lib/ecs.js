@@ -313,6 +313,7 @@ class ECSManager {
               ],
               environment: [
                 { name: 'PORT', value: '4000' }, // Value must be string.
+                { name: 'CONTEXT', value: `/${account.key}/${user.userName}` },
               ],
               portMappings: [
                 { containerPort: 4000, protocol: 'tcp' },
