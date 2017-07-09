@@ -82,21 +82,19 @@ class ECSManager {
       // Bucket: 'jp.co.dreamarts.jcomsurvey-sakurai',
       // NFS: 'nfs/frontend-nfs-11653ya3x556k',
       NFS: false, // StorageGW で提供される NFS
-      StorageGW: false, // StorageGW Public IP (開発ローカル NFSマウント用)
+      MountNFS: false, // 開発ローカル NFSマウント
       LOCAL_NFS: '/Users/dreamarts/WebstormProjects/webide_admin/nfs', // ローカルNFSマウントポイント (自信がvolumeで与えられる)
     };
     this.listExports(this.params, cluster, undefined, (err) => {
 
       // mount_nfs -o vers=3,nolock -v 13.114.44.198:/frontend-nfs-11653ya3x556k nfs
-      const nfs = this.params.NFS.split('/', 2);
-      nfs[0] = this.params.StorageGW;
       const cmd = [
         'mount_nfs',
         '-o vers=3,nolock',
-        `-v ${nfs.join(':/')}`,
+        `-v ${this.params.MountNFS}`,
         this.params.LOCAL_NFS,
       ].join(' ');
-      console.log(`Local NFS Mount : ${cmd}`);
+      console.log(cmd);
 
       callback(err, this.params);
     });
