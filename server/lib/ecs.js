@@ -49,7 +49,7 @@ class ECSManager {
     //     });
     //   }
     // });
-    const dir = [this.params.NFS, this.bucketKey(account, user)].join('/');
+    const dir = [this.params.LOCAL_NFS, this.bucketKey(account, user)].join('/');
     fs.ensureDir(dir, (err) => {
       callback(err);
     });
@@ -76,13 +76,28 @@ class ECSManager {
       Domain: false,
       AccountId: false,
       ALB: false,
-      // NFS: '10.6.10.225/jp.co.dreamarts.jcomsurvey-sakurai/S3',
-      StorageGW: '10.6.10.225',
-      // StorageGW でファイル共有登録されているバケット
-      Bucket: 'jp.co.dreamarts.jcomsurvey-sakurai',
-      NFS: '/Users/dreamarts/WebstormProjects/webide_admin/nfs', // ローカルNFSマウントポイント (自信がvolumeで与えられる)
+      // // NFS: '10.6.10.225/jp.co.dreamarts.jcomsurvey-sakurai/S3',
+      // StorageGW: '10.6.10.225',
+      // // StorageGW でファイル共有登録されているバケット
+      // Bucket: 'jp.co.dreamarts.jcomsurvey-sakurai',
+      // NFS: 'nfs/frontend-nfs-11653ya3x556k',
+      NFS: false, // StorageGW で提供される NFS
+      StorageGW: false, // StorageGW Public IP (開発ローカル NFSマウント用)
+      LOCAL_NFS: '/Users/dreamarts/WebstormProjects/webide_admin/nfs', // ローカルNFSマウントポイント (自信がvolumeで与えられる)
     };
     this.listExports(this.params, cluster, undefined, (err) => {
+
+      // mount_nfs -o vers=3,nolock -v 13.114.44.198:/frontend-nfs-11653ya3x556k nfs
+      const nfs = this.params.NFS.split('/', 2);
+      nfs[0] = this.params.StorageGW;
+      const cmd = [
+        'mount_nfs',
+        '-o vers=3,nolock',
+        `-v ${nfs.join(':/')}`,
+        this.params.LOCAL_NFS,
+      ].join(' ');
+      console.log(`Local NFS Mount : ${cmd}`);
+
       callback(err, this.params);
     });
 
@@ -321,7 +336,7 @@ class ECSManager {
           ],
           volumes: [
             {
-              host: { sourcePath: `${this.params.StorageGW}/${this.params.Bucket}/${this.bucketKey(account, user)}` },
+              host: { sourcePath: `${this.params.NFS}/${this.bucketKey(account, user)}` },
               name: 'USER_DATA',
             },
           ],
