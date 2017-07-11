@@ -75,7 +75,8 @@ class ECSManager {
       Region: process.env.AWS_REGION,
       Domain: false,
       AccountId: false,
-      ALB: false,
+      ALB: 'front-Appli-1WZI69SAUQ9ZV',
+      ECSServiceRole: false,
       NFS: false, // StorageGW で提供される NFS
       MountNFS: false, // 開発ローカル NFSマウント
       LocalNFS: `${__dirname}/../../nfs`, // ローカルNFSマウントポイント (自信がvolumeで与えられる)
@@ -211,6 +212,7 @@ class ECSManager {
     } else {
       async.waterfall([
         (next) => {
+          // Sticky 1s にすれば 2台以上でも大丈夫
           const desiredCount = 2;
           this.updateService(session, { desiredCount }, (err, data) => {
             if (err && err.code === 'ServiceNotFoundException') {
@@ -228,6 +230,7 @@ class ECSManager {
           const { serviceName } = data.service;
           const { _id } = session;
           const $set = { serviceName };
+          // todo: ターゲットグループARN を記憶しておく
           this.db.sessions.updateOne({ _id }, { $set }, (err) => {
             next(err);
           });
@@ -467,11 +470,15 @@ class ECSManager {
 
   createService({ account, user, _id }, { desiredCount }, callback) {
 
+    const tgtGroupArn = 'arn:aws:elasticloadbalancing:ap-northeast-1:663889673734:targetgroup/ecs-fronte-test-test1/0671f63a9fa4024b';
+    // const ecsServiceRole = 'arn:aws:iam::663889673734:role/frontend-ECSServiceRole-ZG4XNE2QBFS';
+
+    const taskName = this.familyPrefix({ account, user });
     const params = {
       cluster: this.params.Cluster,
       desiredCount,
       serviceName: this.serviceName({ account, user, _id }),
-      taskDefinition: this.familyPrefix({ account, user }),
+      taskDefinition: taskName,
       clientToken: _id.toString(),
 
       // deploymentConfiguration: {
@@ -479,15 +486,14 @@ class ECSManager {
       //   minimumHealthyPercent: 0
       // },
 
-      // loadBalancers: [
-      //   {
-      //     containerName: 'STRING_VALUE',
-      //     containerPort: 0,
-      //     loadBalancerName: 'STRING_VALUE',
-      //     targetGroupArn: 'STRING_VALUE'
-      //   },
-      //   /* more items */
-      // ],
+      loadBalancers: [
+        {
+          containerName: taskName,
+          containerPort: 4000,
+          // loadBalancerName: this.params.ALB,
+          targetGroupArn: tgtGroupArn,
+        },
+      ],
 
       // placementConstraints: [
       //   {
@@ -505,7 +511,7 @@ class ECSManager {
       // ],
 
       // Role is required when configuring load-balancers for service
-      // role: 'STRING_VALUE'
+      role: `arn:aws:iam::${this.params.AccountId}:role/${this.params.ECSServiceRole}`,
     };
     ECS.createService(params, (err, data) => {
       callback(err, data);
