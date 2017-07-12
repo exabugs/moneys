@@ -34,6 +34,10 @@
     },
     {
       "type": "TextField",
+      "key": "order"
+    },
+    {
+      "type": "TextField",
       "key": "email"
     },
     {

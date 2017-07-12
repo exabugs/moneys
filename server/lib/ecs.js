@@ -21,6 +21,33 @@ const ELB = new AWS.ELBv2({ CredentialProvider });
 // - ターゲットグループ名 '-' 最大32文字 webideadmin-test-test1
 const APP = 'webideadmin';
 
+// value で指定される path をもつルールを削除する
+const deleteRule = (ListenerArn, value, callback, Marker) => {
+  const params = { ListenerArn, Marker };
+  ELB.describeRules(params, (err, data) => {
+    if (err) {
+      callback(err);
+    } else {
+      async.eachSeries(data.Rules, (rule, next) => {
+        const condiiton = rule.Conditions[0];
+        if (condiiton && condiiton.Values[0] === value) {
+          ELB.deleteRule({ RuleArn: rule.RuleArn }, (err2) => {
+            next(err2);
+          });
+        } else {
+          next(null);
+        }
+      }, (err3) => {
+        if (data && data.Marker) {
+          deleteRule(ListenerArn, value, callback, data.Marker);
+        } else {
+          callback(err3);
+        }
+      });
+    }
+  });
+};
+
 class ECSManager {
 
   // Bucket
@@ -512,32 +539,25 @@ class ECSManager {
           Protocol: 'HTTP',
           Port: 80,
           VpcId: this.params.VpcId,
-
-          HealthCheckProtocol: 'HTTP',
-          HealthCheckPath: path,
-          HealthCheckPort: 'traffic-port',
-          HealthyThresholdCount: 2,
-          UnhealthyThresholdCount: 2,
-          HealthCheckTimeoutSeconds: 5,
-          HealthCheckIntervalSeconds: 10,
-          Matcher: { HttpCode: '200' },
         };
         ELB.createTargetGroup(params, (err, data) => {
           if (err && err.code === 'DuplicateTargetGroupName') {
-            console.log(err);
             const Names = [params.Name];
-            ELB.describeTargetGroups({ Names }, (err2, results) => {
-              err2 && console.log(err2);
-              const TargetGroupArn = results.TargetGroups[0].TargetGroupArn;
-              params.TargetGroupArn = TargetGroupArn;
-              delete params.Name;
-              delete params.Protocol;
-              delete params.Port;
-              delete params.VpcId;
-              ELB.modifyTargetGroup(params, (err3, data) => {
-                err3 && console.log(err3);
-                next(err3, data.TargetGroups[0]);
-              });
+            ELB.describeTargetGroups({ Names }, (err2, result) => {
+              if (err2 || !result || result.TargetGroups.length !== 1) {
+                err2 && console.log(err2);
+                next(err2);
+              } else {
+                // もし ['Protocol', 'Port', 'VpcId'] の何れかが違うならエラー
+                const group = result.TargetGroups[0];
+                if (_.find(['Protocol', 'Port', 'VpcId'], k => params[k] !== group[k])) {
+                  console.log(err);
+                  console.log(`管理コンソールでターゲットグループ削除してください : ${params.Name}`);
+                  next(err);
+                } else {
+                  next(null, group);
+                }
+              }
             });
           } else if (err || !data) {
             next(err);
@@ -548,6 +568,24 @@ class ECSManager {
       },
       (data, next) => {
         const params = {
+          TargetGroupArn: data.TargetGroupArn,
+          HealthCheckProtocol: 'HTTP',
+          HealthCheckPath: path,
+          HealthCheckPort: 'traffic-port',
+          HealthyThresholdCount: 2,
+          UnhealthyThresholdCount: 2,
+          HealthCheckTimeoutSeconds: 5,
+          HealthCheckIntervalSeconds: 10,
+          Matcher: { HttpCode: '200' },
+        };
+        ELB.modifyTargetGroup(params, (err, result) => {
+          err && console.log(err);
+          next(err, result.TargetGroups[0]);
+        });
+      },
+      (data, next) => {
+        const params = {
+          TargetGroupArn: data.TargetGroupArn,
           Attributes: [
             { Key: 'deregistration_delay.timeout_seconds', Value: '60' },
             { Key: 'stickiness.enabled', Value: 'true' },
@@ -555,18 +593,32 @@ class ECSManager {
             // Sticky 1s にすれば 2台以上でも大丈夫
             { Key: 'stickiness.lb_cookie.duration_seconds', Value: '1' },
           ],
-          TargetGroupArn: data.TargetGroupArn,
         };
         ELB.modifyTargetGroupAttributes(params, (err) => {
           next(err, data);
         });
       },
       (data, next) => {
+        // 既存ルールを削除
+        const ListenerArn = this.params.ListenerArn;
+        const value = `${path}*`;
+        deleteRule(ListenerArn, value, (err) => {
+          next(err, data);
+        });
+      },
+      (data, next) => {
+        this.db.users.findOne({ _id: user._id }, (err, obj) => {
+          const Priority = Number.parseInt(obj.order);
+          // todo: Priority の生成ルールが、むつかし。
+          (99999 < Priority) && console.log('[ERROR] Priority must be less than 99999');
+          next(err, data, Priority);
+        });
+      },
+      (data, Priority, next) => {
         // data : ターゲットグループ
         // todo: リスナーはCFでセットする
         // いや、アカウント追加時に動的に作成する。→ ALBはアカウント別にする。
         const ListenerArn = this.params.ListenerArn;
-
         const TargetGroupArn = data.TargetGroupArn;
         const params = {
           Actions: [
@@ -576,9 +628,7 @@ class ECSManager {
             { Field: 'path-pattern', Values: [`${path}*`] },
           ],
           ListenerArn,
-
-          // todo: Priority の生成ルールが、むつかし。
-          Priority: 10,
+          Priority,
         };
         ELB.createRule(params, (err) => {
           err && console.log(err);
@@ -665,4 +715,6 @@ class ECSManager {
   }
 
 }
-module.exports = ECSManager;
+
+module
+  .exports = ECSManager;
