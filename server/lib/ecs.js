@@ -574,8 +574,8 @@ class ECSManager {
           HealthCheckPort: 'traffic-port',
           HealthyThresholdCount: 2,
           UnhealthyThresholdCount: 2,
-          HealthCheckTimeoutSeconds: 5,
-          HealthCheckIntervalSeconds: 10,
+          HealthCheckTimeoutSeconds: 2,
+          HealthCheckIntervalSeconds: 5,
           Matcher: { HttpCode: '200' },
         };
         ELB.modifyTargetGroup(params, (err, result) => {
