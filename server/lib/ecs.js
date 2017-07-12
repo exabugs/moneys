@@ -581,6 +581,7 @@ class ECSManager {
           Priority: 10,
         };
         ELB.createRule(params, (err) => {
+          err && console.log(err);
           next(err, data);
         });
       },
