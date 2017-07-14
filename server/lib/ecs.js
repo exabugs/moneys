@@ -19,6 +19,7 @@ const ELB = new AWS.ELBv2({ CredentialProvider });
 // - サービス名 '_'  webideadmin_test_test1_4e4ef2f7f5ddf9c603d099a01ad18e72
 // − タスク名 (familyPrefix) '_'   webideadmin_test_test1
 // - ターゲットグループ名 '-' 最大32文字 webideadmin-test-test1
+// - ロードバランサ名 '-' webideadmin-test
 const APP = 'webideadmin';
 
 // value で指定される path をもつルールを削除する
@@ -54,9 +55,6 @@ class ECSManager {
   bucketKey(account, user) {
     const array = [APP, account.key];
     user && array.push(user.userName);
-    // 末尾の / は タスク定義の volume では必要なし。
-    // (S3でディレクトリを作成する場合には必要)
-    // array.push('');
     return array.join('/');
   }
 
@@ -64,23 +62,6 @@ class ECSManager {
   // mount_nfs -o vers=3,nolock -v 13.112.217.50:/jp.co.dreamarts.jcomsurvey-sakurai nfs
   //
   bucketCreateFolder(account, user, callback) {
-    // const params = {
-    //   Bucket: this.params.Bucket,
-    //   // Key: `${account.key}/${user.userName}/`,
-    //   Key: this.bucketKey(account, user),
-    // };
-    // S3.putObject(params, (err) => {
-    //   if (err) {
-    //     console.log(err);
-    //     callback(err);
-    //   } else {
-    //     const FileShareARN = 'arn:aws:storagegateway:ap-northeast-1:663889673734:share/share-EE9E7D8C';
-    //     SG.refreshCache({ FileShareARN }, (err) => {
-    //       err && console.log(err);
-    //       callback(err);
-    //     });
-    //   }
-    // });
     const dir = [this.params.LocalNFS, this.bucketKey(account, user)].join('/');
     fs.ensureDir(dir, (err) => {
       callback(err);
@@ -112,11 +93,9 @@ class ECSManager {
       Region: process.env.AWS_REGION,
       Domain: false,
       AccountId: false,
-
-      // accountと 1to1 で
-      ALB: 'front-Appli-1WZI69SAUQ9ZV',
-      ListenerArn: 'arn:aws:elasticloadbalancing:ap-northeast-1:663889673734:listener/app/front-Appli-1WZI69SAUQ9ZV/acd8db52418b2c0b/548652979afddbdb',
-
+      PublicSubnet0: false,
+      PublicSubnet1: false,
+      LBSecurityGroup: false,
       ECSServiceRole: false,
       NFS: false, // StorageGW で提供される NFS
       MountNFS: false, // 開発ローカル NFSマウント
@@ -126,7 +105,9 @@ class ECSManager {
 
       const cmd = `mount_nfs -o vers=3,nolock -v ${this.params.MountNFS} ${this.params.LocalNFS}`;
       console.log(cmd);
-
+      this.params.arn = {
+        elasticloadbalancing: `arn:aws:elasticloadbalancing:${this.params.Region}:${this.params.AccountId}`,
+      };
       callback(err, this.params);
     });
 
@@ -163,9 +144,62 @@ class ECSManager {
 
   // accounts 更新
   onUpdateAccount(account, callback) {
+    const local = {
+      targetGroup: null,
+      loadBalancer: null,
+    };
+
     async.waterfall([
       (next) => {
+        // todo: _common (共通) ディレクトリ (共通のライブラリを入れたり。リードオンリー) を作るようにしたらいい
         this.bucketCreateFolder(account, null, (err) => {
+          next(err);
+        });
+      },
+      (next) => {
+        const params = {
+          Name: this.lbName({ account }),
+          Subnets: [
+            this.params.PublicSubnet0,
+            this.params.PublicSubnet1,
+          ],
+          SecurityGroups: [
+            this.params.LBSecurityGroup,
+          ],
+        };
+        ELB.createLoadBalancer(params, (err, results) => {
+          err && console.log('[ERROR] Fix LoadBalancer Attribute by admin console.');
+          local.loadBalancer = results.LoadBalancers[0];
+          next(err);
+        });
+      },
+      (next) => {
+        // DefaultTargetGroup 作成
+        this._createTaretGroup({ account }, (err, group) => {
+          local.targetGroup = group;
+          next(err);
+        });
+      },
+      (next) => {
+        const { TargetGroupArn } = local.targetGroup;
+        const { LoadBalancerArn } = local.loadBalancer;
+        const params = {
+          DefaultActions: [
+            { TargetGroupArn, Type: 'forward' },
+          ],
+          LoadBalancerArn,
+          Port: 80,
+          Protocol: 'HTTP',
+          // Certificates: [{ CertificateArn: 'STRING_VALUE' }],
+        };
+        ELB.createListener(params, (err, results) => {
+          next(err, results.Listeners[0]);
+        });
+      },
+      (listener, next) => {
+        const _id = account._id;
+        const $set = { 'image.listener': listener.ListenerArn.split('/').slice(-3).join('/') };
+        this.db.accounts.updateOne({ _id }, { $set }, (err) => {
           next(err);
         });
       },
@@ -195,7 +229,8 @@ class ECSManager {
 
   // accounts 削除
   onRemoveAccount(account, callback) {
-
+    // LB 削除
+    // NFS ディレクトリ 削除
   }
 
   // users 更新
@@ -330,6 +365,12 @@ class ECSManager {
   // Task
   familyPrefix({ account, user }) {
     return [APP, account.key, user.userName].join('_');
+  }
+
+  // LB
+  lbName({ account }) {
+    // The load balancer name can only contain characters that are alphanumeric characters and hyphens(-)
+    return [APP, account.key].join('-');
   }
 
   image({ account }, callback) {
@@ -527,50 +568,46 @@ class ECSManager {
   targetGroupName({ account, user }) {
     // This name must be unique per region per account, can have a maximum of 32 characters,
     // must contain only alphanumeric characters or hyphens, and must not begin or end with a hyphen.
-    return [APP, account.key, user.userName].join('-');
+    return user ?
+      [APP, account.key, user.userName].join('-') :
+      [APP, account.key].join('-');
   }
 
   createTargetGroup({ account, user }, callback) {
-    const path = `/${account.key}/${user.userName}/`;
+    const local = {
+      path: `/${account.key}/${user.userName}/`,
+      listenerArn: null,
+      priority: null,
+      targetGroup: null,
+    };
     async.waterfall([
       (next) => {
-        const params = {
-          Name: this.targetGroupName({ account, user }),
-          Protocol: 'HTTP',
-          Port: 80,
-          VpcId: this.params.VpcId,
-        };
-        ELB.createTargetGroup(params, (err, data) => {
-          if (err && err.code === 'DuplicateTargetGroupName') {
-            const Names = [params.Name];
-            ELB.describeTargetGroups({ Names }, (err2, result) => {
-              if (err2 || !result || result.TargetGroups.length !== 1) {
-                err2 && console.log(err2);
-                next(err2);
-              } else {
-                // もし ['Protocol', 'Port', 'VpcId'] の何れかが違うならエラー
-                const group = result.TargetGroups[0];
-                if (_.find(['Protocol', 'Port', 'VpcId'], k => params[k] !== group[k])) {
-                  console.log(err);
-                  console.log(`管理コンソールでターゲットグループ削除してください : ${params.Name}`);
-                  next(err);
-                } else {
-                  next(null, group);
-                }
-              }
-            });
-          } else if (err || !data) {
-            next(err);
-          } else {
-            next(err, data.TargetGroups[0]);
-          }
+        this.image({ account }, (err, obj) => {
+          local.listenerArn = `${this.params.arn.elasticloadbalancing}:listener/app/${obj.listener}`;
+          next(err);
         });
       },
-      (data, next) => {
+      (next) => {
+        this.db.users.findOne({ _id: user._id }, (err, obj) => {
+          const priority = Number.parseInt(obj.order);
+          // todo: Priority の生成ルールが、むつかし。99999 以下のこと。
+          (99999 < priority) && console.log('[ERROR] Priority must be less than 99999');
+          local.priority = priority;
+          next(err);
+        });
+      },
+      (next) => {
+        this._createTaretGroup({ account, user }, (err, group) => {
+          local.targetGroup = group;
+          next(err);
+        });
+      },
+      (next) => {
+        const { TargetGroupArn } = local.targetGroup;
         const params = {
-          TargetGroupArn: data.TargetGroupArn,
+          TargetGroupArn,
           HealthCheckProtocol: 'HTTP',
-          HealthCheckPath: path,
+          HealthCheckPath: local.path,
           HealthCheckPort: 'traffic-port',
           HealthyThresholdCount: 2,
           UnhealthyThresholdCount: 2,
@@ -580,12 +617,14 @@ class ECSManager {
         };
         ELB.modifyTargetGroup(params, (err, result) => {
           err && console.log(err);
-          next(err, result.TargetGroups[0]);
+          local.targetGroup = result.TargetGroups[0];
+          next(err);
         });
       },
-      (data, next) => {
+      (next) => {
+        const { TargetGroupArn } = local.targetGroup;
         const params = {
-          TargetGroupArn: data.TargetGroupArn,
+          TargetGroupArn,
           Attributes: [
             { Key: 'deregistration_delay.timeout_seconds', Value: '60' },
             { Key: 'stickiness.enabled', Value: 'true' },
@@ -595,49 +634,70 @@ class ECSManager {
           ],
         };
         ELB.modifyTargetGroupAttributes(params, (err) => {
-          next(err, data);
+          next(err);
         });
       },
-      (data, next) => {
+      (next) => {
         // 既存ルールを削除
-        const ListenerArn = this.params.ListenerArn;
-        const value = `${path}*`;
-        deleteRule(ListenerArn, value, (err) => {
-          next(err, data);
+        const value = `${local.path}*`;
+        deleteRule(local.listenerArn, value, (err) => {
+          next(err);
         });
       },
-      (data, next) => {
-        this.db.users.findOne({ _id: user._id }, (err, obj) => {
-          const Priority = Number.parseInt(obj.order);
-          // todo: Priority の生成ルールが、むつかし。
-          (99999 < Priority) && console.log('[ERROR] Priority must be less than 99999');
-          next(err, data, Priority);
-        });
-      },
-      (data, Priority, next) => {
-        // data : ターゲットグループ
-        // todo: リスナーはCFでセットする
-        // いや、アカウント追加時に動的に作成する。→ ALBはアカウント別にする。
-        const ListenerArn = this.params.ListenerArn;
-        const TargetGroupArn = data.TargetGroupArn;
+      (next) => {
+        const { TargetGroupArn } = local.targetGroup;
         const params = {
           Actions: [
             { TargetGroupArn, Type: 'forward' },
           ],
           Conditions: [
-            { Field: 'path-pattern', Values: [`${path}*`] },
+            { Field: 'path-pattern', Values: [`${local.path}*`] },
           ],
-          ListenerArn,
-          Priority,
+          ListenerArn: local.listenerArn,
+          Priority: local.priority,
         };
         ELB.createRule(params, (err) => {
           err && console.log(err);
-          next(err, data);
+          next(err);
         });
       },
-    ], (err, data) => {
-      // data : ターゲットグループ
-      callback(err, data);
+    ], (err) => {
+      // ターゲットグループ を返すこと！
+      callback(err, local.targetGroup);
+    });
+  }
+
+  _createTaretGroup({ account, user }, callback) {
+    const params = {
+      Name: this.targetGroupName({ account, user }),
+      Protocol: 'HTTP',
+      Port: 80,
+      VpcId: this.params.VpcId,
+    };
+    ELB.createTargetGroup(params, (err, data) => {
+      if (err && err.code === 'DuplicateTargetGroupName') {
+        const Names = [params.Name];
+        ELB.describeTargetGroups({ Names }, (err2, result) => {
+          if (err2 || !result || result.TargetGroups.length !== 1) {
+            err2 && console.log(err2);
+            callback(err2);
+          } else {
+            // もし ['Protocol', 'Port', 'VpcId'] の何れかが違うならエラー
+            const group = result.TargetGroups[0];
+            if (_.find(['Protocol', 'Port', 'VpcId'], k => params[k] !== group[k])) {
+              console.log(err);
+              console.log(`管理コンソールでターゲットグループ削除してください : ${params.Name}`);
+              callback(err);
+            } else {
+              callback(null, group);
+            }
+          }
+        });
+      } else if (err || !data) {
+        callback(err);
+      } else {
+        callback(err, data.TargetGroups[0]);
+      }
     });
   }
 
@@ -650,10 +710,7 @@ class ECSManager {
         });
       },
       (targetGroup, next) => {
-        // const tgtGroupArn = 'arn:aws:elasticloadbalancing:ap-northeast-1:663889673734:targetgroup/ecs-fronte-test-test1/0671f63a9fa4024b';
-        // const ecsServiceRole = 'arn:aws:iam::663889673734:role/frontend-ECSServiceRole-ZG4XNE2QBFS';
-        const targetGroupArn = `arn:aws:elasticloadbalancing:${this.params.Region}:${this.params.AccountId}:targetgroup/${targetGroup}`;
-
+        const targetGroupArn = `${this.params.arn.elasticloadbalancing}:targetgroup/${targetGroup}`;
         const taskName = this.familyPrefix({ account, user });
         const params = {
           cluster: this.params.Cluster,
@@ -716,5 +773,4 @@ class ECSManager {
 
 }
 
-module
-  .exports = ECSManager;
+module.exports = ECSManager;
