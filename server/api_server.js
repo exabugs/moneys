@@ -59,17 +59,17 @@ app.get('/', (req, res) => {
 
 const subscribeInfo = {};
 
-function subscribe(type, coll, func, call) {
+function subscribe(type, coll, func) {
   const info = subscribeInfo[type] = subscribeInfo[type] || {};
   const name = coll.s ? coll.s.name : coll;
   info[name] = info[name] || [];
-  info[name].push({ func, call });
+  info[name].push(func);
 }
 
 function publish(type, coll, item, callback) {
   const infos = subscribeInfo[type] || [];
   async.eachSeries(infos[coll], (info, next) => {
-    info.func.bind(info.call)(item, next);
+    info(item, next);
   }, (err) => {
     callback(err, item);
   });

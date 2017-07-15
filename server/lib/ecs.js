@@ -74,12 +74,12 @@ class ECSManager {
       users: db.collection('users'),
       sessions: db.collection('sessions'),
     };
-    subscribe('update', 'users', this.onUpdateUser, this);
-    subscribe('remove', 'users', this.onRemoveUser, this);
-    subscribe('update', 'accounts', this.onUpdateAccount, this);
-    subscribe('remove', 'accounts', this.onRemoveAccount, this);
-    subscribe('login', 'sessions', this.onLogin, this);
-    subscribe('logout', 'sessions', this.onLogout, this);
+    subscribe('update', 'users', this.onUpdateUser.bind(this));
+    subscribe('remove', 'users', this.onRemoveUser.bind(this));
+    subscribe('update', 'accounts', this.onUpdateAccount.bind(this));
+    subscribe('remove', 'accounts', this.onRemoveAccount.bind(this));
+    subscribe('login', 'sessions', this.onLogin.bind(this));
+    subscribe('logout', 'sessions', this.onLogout.bind(this));
   }
 
   // arn:aws:elasticloadbalancing:region:account-id:loadbalancer/app/load-balancer-name/load-balancer-id
