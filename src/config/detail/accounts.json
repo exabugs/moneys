@@ -6,8 +6,8 @@
       "key": "name"
     },
     {
-      "common": "image",
-      "key": "image"
+      "common": "service",
+      "key": "service"
     },
     {
       "common": "valid",

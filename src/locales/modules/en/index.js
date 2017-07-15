@@ -17,9 +17,9 @@ export default {
   items,
 
   unit: {
+    port: ' ',
     people: '人',
     yen: '円',
-    line: '回線',
     MB: 'MB',
     GB: 'GB',
     vcpu: 'vcpu',

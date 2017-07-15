@@ -5,6 +5,11 @@
     "icon": "action/home"
   },
   {
+    "link": "/modules/images",
+    "text": "images",
+    "icon": "communication/comment"
+  },
+  {
     "link": "/modules/accounts",
     "text": "accounts",
     "icon": "communication/comment"

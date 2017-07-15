@@ -222,7 +222,7 @@ const Parts = (props) => {
                          style={{ width: 600, height: 32, margin: 0 }} />
                 </td>
                 <td>
-                  <Field underlineShow={false} name={name} component={TextField} disabled={false}
+                  <Field underlineShow={false} name={name} component={TextField} disabled={true}
                          style={{ width: 80, textAlign: 'right' }} />
                   <FormattedMessage id={`modules.unit.${fieldDef.unit}`} />
                 </td>

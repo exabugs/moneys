@@ -1,0 +1,30 @@
+{
+  "collection": "images",
+  "fieldDefs": [
+    {
+      "type": "TextField",
+      "key": "name"
+    },
+    {
+      "common": "environment",
+      "array": true,
+      "key": "environment"
+    },
+    {
+      "type": "Slider",
+      "array": true,
+      "props": {
+        "min": 1024,
+        "max": 10000,
+        "step": 1
+      },
+      "unit": "port",
+      "key": "portMappings"
+    },
+    {
+      "common": "mountPoints",
+      "array": true,
+      "key": "mountPoints"
+    }
+  ]
+}

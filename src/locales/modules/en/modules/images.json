@@ -1,0 +1,10 @@
+{
+  "name": "名前",
+  "value": "値",
+  "portMappings": "ポート番号",
+  "mountPoints": "マウント",
+  "sourcePath": "ソース",
+  "containerPath": "コンテナ",
+  "environment": "環境変数",
+  "updatedAt": "更新日時"
+}

@@ -75,6 +75,7 @@ class ECSManager {
 
   constructor(db, subscribe) {
     this.db = {
+      images: db.collection('images'),
       accounts: db.collection('accounts'),
       users: db.collection('users'),
       sessions: db.collection('sessions'),
@@ -203,7 +204,7 @@ class ECSManager {
       },
       (listener, next) => {
         const _id = account._id;
-        const $set = { 'image.listener': split2(listener.ListenerArn, '/')[1] };
+        const $set = { 'service.listener': split2(listener.ListenerArn, '/')[1] };
         this.db.accounts.updateOne({ _id }, { $set }, (err) => {
           next(err);
         });
@@ -378,9 +379,9 @@ class ECSManager {
     return [APP, account.key].join('-');
   }
 
-  image({ account }, callback) {
+  serviceSettings({ account }, callback) {
     this.db.accounts.findOne({ _id: account._id }, (err, result) => {
-      callback(err, result.image);
+      callback(err, result.service);
     });
   }
 
@@ -388,52 +389,69 @@ class ECSManager {
     async.waterfall([
       (next) => {
         if (account) {
-          this.image({ account }, next);
+          this.serviceSettings({ account }, next);
         } else {
           next('NO ACCOUNT');
         }
       },
-      (image, next) => {
+      (service, next) => {
+        const _id = service.image._id;
+        this.db.images.findOne({ _id }, (err, image) => {
+          service.image = image;
+          next(err, service);
+        });
+      },
+      (service, next) => {
         const ecrurl = [this.params.AccountId, 'dkr', ECR.endpoint.host].join('.');
         const name = this.familyPrefix({ account, user });
+        const container = {
+          name,
+          image: `${ecrurl}/${service.image.name}:${service.tag}`,
+          memory: service.memory,
+          cpu: service.cpu,
+          logConfiguration: {
+            logDriver: 'awslogs',
+            options: {
+              'awslogs-group': this.params.Cluster,
+              'awslogs-region': this.params.Region,
+              'awslogs-stream-prefix': this.params.Cluster,
+            },
+          },
+          mountPoints: [],
+          environment: [],
+          portMappings: [],
+          // user: 'STRING_VALUE',
+          dnsSearchDomains: [this.params.Domain],
+        };
         const task = {
           family: name,
           networkMode: 'bridge',
-          containerDefinitions: [
-            {
-              name,
-              image: `${ecrurl}/${image.name}:${image.tag}`,
-              memory: image.memory,
-              cpu: image.cpu,
-              logConfiguration: {
-                logDriver: 'awslogs',
-                options: {
-                  'awslogs-group': this.params.Cluster,
-                  'awslogs-region': this.params.Region,
-                  'awslogs-stream-prefix': this.params.Cluster,
-                },
-              },
-              mountPoints: [
-                { containerPath: '/data', sourceVolume: 'USER_DATA' },
-              ],
-              environment: [
-                { name: 'PORT', value: '4000' }, // Value must be string.
-                { name: 'CONTEXT', value: `/${account.key}/${user.userName}` },
-              ],
-              portMappings: [
-                { containerPort: 4000, protocol: 'tcp' },
-              ],
-              // user: 'STRING_VALUE',
-              dnsSearchDomains: [this.params.Domain],
-            },
-          ],
-          volumes: [
-            {
-              host: { sourcePath: `${this.params.NFS}/${this.bucketKey(account, user)}` },
-              name: 'USER_DATA',
-            },
-          ],
+          containerDefinitions: [container],
+          volumes: [],
         };
+
+        // 設定で使用可能な %マジックワード% を定義
+        const map = {
+          CONTEXT: `/${account.key}/${user.userName}`,
+        };
+
+        function replace(value) {
+          return _.reduce(map, (v, value, key) => v.replace(`%${key}%`, value), value);
+        };
+
+        service.image.mountPoints.forEach((info, i) => {
+          const name = `USER_DATA_${i}`;
+          const sourcePath = `${this.params.NFS}/${APP}${replace(info.sourcePath)}`;
+          container.mountPoints.push({ sourceVolume: name, containerPath: info.containerPath });
+          task.volumes.push({ name, host: { sourcePath } });
+        });
+        service.image.environment.forEach(info => {
+          container.environment.push({ name: info.name, value: replace(info.value) });
+        });
+        service.image.portMappings.forEach((info) => {
+          container.portMappings.push({ containerPort: info, protocol: 'tcp' });
+        });
+
         ECS.registerTaskDefinition(task, (err, data) => {
           next(err, data);
         });
@@ -587,7 +605,7 @@ class ECSManager {
     };
     async.waterfall([
       (next) => {
-        this.image({ account }, (err, obj) => {
+        this.serviceSettings({ account }, (err, obj) => {
           local.listenerArn = `${this.params.arn.elasticloadbalancing}:listener/${obj.listener}`;
           next(err);
         });
@@ -779,3 +797,43 @@ class ECSManager {
 }
 
 module.exports = ECSManager;
+
+// const imageSample = {
+//   "_id": ObjectId("5969af9ad4b91cb9282907c2"),
+//   "name": "jquerywebide_terminal",
+//   "environment": [
+//     {
+//       "name": "PORT",
+//       "value": "4000"
+//     },
+//     {
+//       "name": "CONTEXT",
+//       "value": "%CONTEXT%"
+//     }
+//   ],
+//   "portMappings": [
+//     4000
+//   ],
+//   "mountPoints": [
+//     {
+//       "sourcePath": "%CONTEXT%",
+//       "containerPath": "/data"
+//     }
+//   ],
+// };
+
+// const accountSample = {
+//   "_id" : ObjectId("5944f4898853b8000000000a"),
+//   "name" : "test",
+//   "key" : "test",
+//   "service" : {
+//     "image" : {
+//       "_id" : ObjectId("5969af9ad4b91cb9282907c2"),
+//       "name" : "jquerywebide_terminal"
+//     },
+//     "tag" : "20170618",
+//     "memory" : 100,
+//     "cpu" : 100,
+//     "listener" : "app/webideadmin-test/daa0492303d73682/e5b9e7c4416a9961"
+//   },
+// }

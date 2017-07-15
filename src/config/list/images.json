@@ -1,0 +1,25 @@
+{
+  "collection": "images",
+  "sort": [
+  ],
+  "search": [
+    {
+      "common": "fullsearch"
+    }
+  ],
+  "fields": [
+    {
+      "width": 80,
+      "key": "name"
+    },
+    {
+      "width": 80,
+      "key": "ports"
+    },
+    {
+      "width": 100,
+      "common": "datetime",
+      "key": "updatedAt"
+    }
+  ]
+}

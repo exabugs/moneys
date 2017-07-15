@@ -1,3 +1,4 @@
+import images from './images.json';
 import accounts from './accounts.json';
 import groups from './groups.json';
 import users from './users.json';
@@ -10,6 +11,7 @@ import _common from './_common.json';
 export default {
   _common,
 
+  images,
   accounts,
   groups,
   users,

@@ -23,10 +23,25 @@
     ]
   },
   "image": {
+    "selector": "List",
+    "collection": "images",
     "fieldDefs": [
+      {
+        "visible": false,
+        "common": "_id",
+        "key": "_id"
+      },
       {
         "type": "TextField",
         "key": "name"
+      }
+    ]
+  },
+  "service": {
+    "fieldDefs": [
+      {
+        "common": "image",
+        "key": "image"
       },
       {
         "type": "TextField",
@@ -75,6 +90,30 @@
         "visible": false,
         "type": "group",
         "key": "ancestors"
+      }
+    ]
+  },
+  "environment": {
+    "fieldDefs": [
+      {
+        "type": "TextField",
+        "key": "name"
+      },
+      {
+        "type": "TextField",
+        "key": "value"
+      }
+    ]
+  },
+  "mountPoints": {
+    "fieldDefs": [
+      {
+        "type": "TextField",
+        "key": "containerPath"
+      },
+      {
+        "type": "TextField",
+        "key": "sourcePath"
       }
     ]
   },
