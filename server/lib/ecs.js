@@ -22,6 +22,11 @@ const ELB = new AWS.ELBv2({ CredentialProvider });
 // - ロードバランサ名 '-' webideadmin-test
 const APP = 'webideadmin';
 
+const split2 = (str, separator) => {
+  const i = str.indexOf(separator);
+  return [str.slice(0, i), str.slice(i + 1)];
+};
+
 // value で指定される path をもつルールを削除する
 const deleteRule = (ListenerArn, value, callback, Marker) => {
   const params = { ListenerArn, Marker };
@@ -198,7 +203,7 @@ class ECSManager {
       },
       (listener, next) => {
         const _id = account._id;
-        const $set = { 'image.listener': listener.ListenerArn.split('/').slice(-3).join('/') };
+        const $set = { 'image.listener': split2(listener.ListenerArn, '/')[1] };
         this.db.accounts.updateOne({ _id }, { $set }, (err) => {
           next(err);
         });
@@ -266,7 +271,7 @@ class ECSManager {
               next(err);
             } else {
               // ターゲットグループARN を記憶しておく
-              const targetGroup = data.TargetGroupArn.split('/').slice(-2).join('/');
+              const targetGroup = split2(data.TargetGroupArn, '/')[1];
               const _id = user._id;
               const $set = { targetGroup };
               this.db.users.updateOne({ _id }, { $set }, (err) => {
@@ -495,7 +500,7 @@ class ECSManager {
         callback(err);
       } else {
         async.eachSeries(data.serviceArns, (arn, next) => {
-          const name = arn.split('/', 2)[1];
+          const name = split2(arn, '/')[1];
           const info = name.split('_');
           if (info.length === 4 && info[0] === APP) {
             const _id = info[3];
@@ -583,7 +588,7 @@ class ECSManager {
     async.waterfall([
       (next) => {
         this.image({ account }, (err, obj) => {
-          local.listenerArn = `${this.params.arn.elasticloadbalancing}:listener/app/${obj.listener}`;
+          local.listenerArn = `${this.params.arn.elasticloadbalancing}:listener/${obj.listener}`;
           next(err);
         });
       },
