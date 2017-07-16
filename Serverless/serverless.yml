@@ -59,7 +59,7 @@ provider:
 
 functions:
   alert:
-    handler: handler
+    handler: alert.handler
     events:
       - sns: exabugs_sns_slack_alert
 
