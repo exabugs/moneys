@@ -165,14 +165,14 @@ class ECSManager {
         });
       },
       (next) => {
-        this.imageSettings({ account }, (err, image) => {
+        this.imageSettings(account.service, (err, image) => {
           local.image = image;
           next(err);
         });
       },
       (next) => {
         const params = {
-          Name: this.lbName({ account }),
+          Name: this.lbName(account),
           Subnets: [
             this.params.PublicSubnet0,
             this.params.PublicSubnet1,
@@ -383,20 +383,20 @@ class ECSManager {
   }
 
   // LB
-  lbName({ account }) {
+  lbName(account) {
     // The load balancer name can only contain characters that are alphanumeric characters and hyphens(-)
     return [APP, account.key].join('-');
   }
 
-  serviceSettings({ account }, callback) {
+  serviceSettings(account, callback) {
     this.db.accounts.findOne({ _id: account._id }, (err, result) => {
       callback(err, result.service);
     });
   }
 
-  imageSettings({ account }, callback) {
-    if (account.service && account.service.image && account.service.image._id) {
-      this.db.images.findOne({ _id: account.service.image._id }, (err, image) => {
+  imageSettings(service, callback) {
+    if (service && service.image && service.image._id) {
+      this.db.images.findOne({ _id: service.image._id }, (err, image) => {
         callback(err, image);
       });
     } else {
@@ -408,7 +408,7 @@ class ECSManager {
     async.waterfall([
       (next) => {
         if (account) {
-          this.serviceSettings({ account }, next);
+          this.serviceSettings(account, next);
         } else {
           next('NO ACCOUNT');
         }
@@ -624,7 +624,7 @@ class ECSManager {
     };
     async.waterfall([
       (next) => {
-        this.serviceSettings({ account }, (err, obj) => {
+        this.serviceSettings(account, (err, obj) => {
           local.listeners = obj.listeners;
           next(err);
         });
@@ -702,6 +702,8 @@ class ECSManager {
           // todo: 意味違うけど、この値をつかうのではどうでしょうか？
           // HealthCheckPort: 'traffic-port',
 
+          // ここでの Protocol と Port には、意味はないのではないか？
+
           Port: 80,
           VpcId: this.params.VpcId,
         };
@@ -754,15 +756,31 @@ class ECSManager {
   }
 
   createService({ account, user, _id }, { desiredCount }, callback) {
-
+    const local = {
+      targetGroup: null,
+      image: null,
+    };
     async.waterfall([
       (next) => {
-        this.db.users.findOne({ _id: user._id }, (err, obj) => {
-          next(err, obj.targetGroup);
+        this.serviceSettings(account, (err, service) => {
+          if (err) {
+            next(err);
+          } else {
+            this.imageSettings(service, (err, image) => {
+              local.image = image;
+              next(err);
+            });
+          }
         });
       },
-      (targetGroup, next) => {
-        const targetGroupArn = `${this.params.arn.elasticloadbalancing}:targetgroup/${targetGroup}`;
+      (next) => {
+        this.db.users.findOne({ _id: user._id }, (err, obj) => {
+          local.targetGroup = obj.targetGroup;
+          next(err);
+        });
+      },
+      (next) => {
+        const targetGroupArn = `${this.params.arn.elasticloadbalancing}:targetgroup/${local.targetGroup}`;
         const taskName = this.familyPrefix({ account, user });
         const params = {
           cluster: this.params.Cluster,
@@ -776,14 +794,7 @@ class ECSManager {
           //   minimumHealthyPercent: 0
           // },
 
-          loadBalancers: [
-            {
-              containerName: taskName,
-              containerPort: 4000,
-              // loadBalancerName: this.params.ALB,
-              targetGroupArn,
-            },
-          ],
+          loadBalancers: [],
 
           // placementConstraints: [
           //   {
@@ -803,6 +814,16 @@ class ECSManager {
           // Role is required when configuring load-balancers for service
           role: `arn:aws:iam::${this.params.AccountId}:role/${this.params.ECSServiceRole}`,
         };
+
+        local.image.portMappings.forEach((port) => {
+          const lb = {
+            containerName: taskName,
+            containerPort: port.containerPort,
+            targetGroupArn,
+          };
+          params.loadBalancers.push(lb);
+        });
+
         ECS.createService(params, (err, data) => {
           next(err, data);
         });
