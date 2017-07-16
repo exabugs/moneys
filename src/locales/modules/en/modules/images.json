@@ -5,6 +5,8 @@
   "mountPoints": "マウント",
   "sourcePath": "ソース",
   "containerPath": "コンテナ",
+  "listenerPort": "リスナー",
+  "containerPort": "コンテナ",
   "environment": "環境変数",
   "updatedAt": "更新日時"
 }

@@ -151,6 +151,7 @@ class ECSManager {
   // accounts 更新
   onUpdateAccount(account, callback) {
     const local = {
+      image: null,
       targetGroup: null,
       loadBalancer: null,
     };
@@ -159,6 +160,12 @@ class ECSManager {
       (next) => {
         // todo: _common (共通) ディレクトリ (共通のライブラリを入れたり。リードオンリー) を作るようにしたらいい
         this.bucketCreateFolder(account, null, (err) => {
+          next(err);
+        });
+      },
+      (next) => {
+        this.imageSettings({ account }, (err, image) => {
+          local.image = image;
           next(err);
         });
       },
@@ -182,31 +189,31 @@ class ECSManager {
       (next) => {
         // DefaultTargetGroup 作成
         this._createTaretGroup({ account }, (err, group) => {
-          local.targetGroup = group;
-          next(err);
-        });
-      },
-      (next) => {
-        const { TargetGroupArn } = local.targetGroup;
-        const { LoadBalancerArn } = local.loadBalancer;
-        const params = {
-          DefaultActions: [
-            { TargetGroupArn, Type: 'forward' },
-          ],
-          LoadBalancerArn,
-          Port: 80,
-          Protocol: 'HTTP',
-          // Certificates: [{ CertificateArn: 'STRING_VALUE' }],
-        };
-        ELB.createListener(params, (err, results) => {
-          next(err, results.Listeners[0]);
-        });
-      },
-      (listener, next) => {
-        const _id = account._id;
-        const $set = { 'service.listener': split2(listener.ListenerArn, '/')[1] };
-        this.db.accounts.updateOne({ _id }, { $set }, (err) => {
-          next(err);
+          if (err) {
+            next(err);
+          } else {
+            const { TargetGroupArn } = group;
+            async.mapSeries(local.image.portMappings, (port, next) => {
+              const { LoadBalancerArn } = local.loadBalancer;
+              const params = {
+                DefaultActions: [{ TargetGroupArn, Type: 'forward' }],
+                LoadBalancerArn,
+                Port: port.listenerPort,
+                Protocol: 'HTTP',
+                // Certificates: [{ CertificateArn: 'STRING_VALUE' }],
+              };
+              ELB.createListener(params, (err, results) => {
+                const listener = results.Listeners[0];
+                next(err, split2(listener.ListenerArn, '/')[1]);
+              });
+            }, (err, listeners) => {
+              const _id = account._id;
+              const $set = { 'service.listeners': listeners };
+              this.db.accounts.updateOne({ _id }, { $set }, (err) => {
+                next(err);
+              });
+            });
+          }
         });
       },
       (next) => {
@@ -385,6 +392,16 @@ class ECSManager {
     });
   }
 
+  imageSettings({ account }, callback) {
+    if (account.service && account.service.image && account.service.image._id) {
+      this.db.images.findOne({ _id: account.service.image._id }, (err, image) => {
+        callback(err, image);
+      });
+    } else {
+      callback('[ERROR] not found account.service.image._id');
+    }
+  }
+
   createTask({ account, user }, callback) {
     async.waterfall([
       (next) => {
@@ -445,11 +462,11 @@ class ECSManager {
           container.mountPoints.push({ sourceVolume: name, containerPath: info.containerPath });
           task.volumes.push({ name, host: { sourcePath } });
         });
-        service.image.environment.forEach(info => {
+        service.image.environment.forEach((info) => {
           container.environment.push({ name: info.name, value: replace(info.value) });
         });
         service.image.portMappings.forEach((info) => {
-          container.portMappings.push({ containerPort: info, protocol: 'tcp' });
+          container.portMappings.push({ containerPort: info.containerPort, protocol: 'tcp' });
         });
 
         ECS.registerTaskDefinition(task, (err, data) => {
@@ -599,14 +616,14 @@ class ECSManager {
   createTargetGroup({ account, user }, callback) {
     const local = {
       path: `/${account.key}/${user.userName}/`,
-      listenerArn: null,
+      listeners: null,
       priority: null,
       targetGroup: null,
     };
     async.waterfall([
       (next) => {
         this.serviceSettings({ account }, (err, obj) => {
-          local.listenerArn = `${this.params.arn.elasticloadbalancing}:listener/${obj.listener}`;
+          local.listeners = obj.listeners;
           next(err);
         });
       },
@@ -661,31 +678,32 @@ class ECSManager {
         });
       },
       (next) => {
-        // 既存ルールを削除
-        const value = `${local.path}*`;
-        deleteRule(local.listenerArn, value, (err) => {
-          next(err);
-        });
-      },
-      (next) => {
-        const { TargetGroupArn } = local.targetGroup;
-        const params = {
-          Actions: [
-            { TargetGroupArn, Type: 'forward' },
-          ],
-          Conditions: [
-            { Field: 'path-pattern', Values: [`${local.path}*`] },
-          ],
-          ListenerArn: local.listenerArn,
-          Priority: local.priority,
-        };
-        ELB.createRule(params, (err) => {
-          err && console.log(err);
+        async.eachSeries(local.listeners, (listener, next) => {
+          const ListenerArn = `${this.params.arn.elasticloadbalancing}:listener/${listener}`;
+          const path = `${local.path}*`;
+          deleteRule(ListenerArn, path, (err) => {
+            if (err) {
+              next(err);
+            } else {
+              const { TargetGroupArn } = local.targetGroup;
+              const params = {
+                Actions: [{ TargetGroupArn, Type: 'forward' }],
+                Conditions: [{ Field: 'path-pattern', Values: [path] }],
+                ListenerArn,
+                Priority: local.priority,
+              };
+              ELB.createRule(params, (err) => {
+                next(err);
+              });
+            }
+          });
+        }, (err) => {
           next(err);
         });
       },
     ], (err) => {
       // ターゲットグループ を返すこと！
+      err && console.log(err);
       callback(err, local.targetGroup);
     });
   }
@@ -694,6 +712,10 @@ class ECSManager {
     const params = {
       Name: this.targetGroupName({ account, user }),
       Protocol: 'HTTP',
+
+      // todo: 意味違うけど、この値をつかうのではどうでしょうか？
+      // HealthCheckPort: 'traffic-port',
+
       Port: 80,
       VpcId: this.params.VpcId,
     };

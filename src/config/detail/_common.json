@@ -93,6 +93,30 @@
       }
     ]
   },
+  "portMappings": {
+    "fieldDefs": [
+      {
+        "type": "Slider",
+        "props": {
+          "min": 1025,
+          "max": 10000,
+          "step": 1
+        },
+        "unit": "port",
+        "key": "containerPort"
+      },
+      {
+        "type": "Slider",
+        "props": {
+          "min": 1,
+          "max": 1024,
+          "step": 1
+        },
+        "unit": "port",
+        "key": "listenerPort"
+      }
+    ]
+  },
   "environment": {
     "fieldDefs": [
       {
