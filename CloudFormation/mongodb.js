@@ -86,7 +86,7 @@ Parameters.EBSSize = {
 
 Parameters.AlertTopic = {
   Type: 'String',
-  Default: 'SakuraiAlertTest',
+  Default: 'exabugs_sns_slack_alert',
   Description: 'Alert Topic',
 };
 
