@@ -78,7 +78,7 @@ Parameters.SSHLocation = {
 Parameters.AmazonLinuxAMI = {
   Type: 'String',
   // Default: 'ami-cb787aac', // amzn-ami-2017.03.a-amazon-ecs-optimized
-  Default: 'ami-3a000e5d', // amzn-ami-2017.03.b-amazon-ecs-optimized
+  Default: 'ami-e4657283', // amzn-ami-2017.03.d-amazon-ecs-optimized
   Description: 'http://docs.aws.amazon.com/ja_jp/AmazonECS/latest/developerguide/ecs-optimized_AMI_launch_latest.html',
 };
 
