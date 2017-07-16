@@ -72,6 +72,11 @@ Parameters.KeyName = {
   Description: 'Name of an existing EC2 KeyPair',
 };
 
+Parameters.AvailabilityZone = {
+  Type: 'List<AWS::EC2::AvailabilityZone::Name>',
+  Description: 'Select at two zone in your Region.',
+};
+
 Parameters.Domain = {
   Type: 'String',
   Default: `${CFName}.internal`,
@@ -266,7 +271,7 @@ Object.keys(Mappings.Network.PublicSubnet).forEach((subnet, i) => {
       VpcId: { Ref: 'VPC' },
       CidrBlock: { 'Fn::FindInMap': ['Network', 'PublicSubnet', subnet] },
       AvailabilityZone: {
-        'Fn::Select': [i, { 'Fn::GetAZs': '' }],
+        'Fn::Select': [i, { Ref: 'AvailabilityZone' }],
       },
       Tags: [
         { Key: 'Name', Value: tagname(subnet) },
