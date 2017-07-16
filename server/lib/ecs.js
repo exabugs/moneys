@@ -151,6 +151,7 @@ class ECSManager {
   // accounts 更新
   onUpdateAccount(account, callback) {
     const local = {
+      path: `/${account.key}/`,
       image: null,
       targetGroup: null,
       loadBalancer: null,
@@ -188,7 +189,8 @@ class ECSManager {
       },
       (next) => {
         // DefaultTargetGroup 作成
-        this._createTaretGroup({ account }, (err, group) => {
+        const HealthCheckPath = local.path;
+        this._createTaretGroup({ account, HealthCheckPath }, (err, group) => {
           if (err) {
             next(err);
           } else {
@@ -637,27 +639,9 @@ class ECSManager {
         });
       },
       (next) => {
-        this._createTaretGroup({ account, user }, (err, group) => {
+        const HealthCheckPath = local.path;
+        this._createTaretGroup({ account, user, HealthCheckPath }, (err, group) => {
           local.targetGroup = group;
-          next(err);
-        });
-      },
-      (next) => {
-        const { TargetGroupArn } = local.targetGroup;
-        const params = {
-          TargetGroupArn,
-          HealthCheckProtocol: 'HTTP',
-          HealthCheckPath: local.path,
-          HealthCheckPort: 'traffic-port',
-          HealthyThresholdCount: 2,
-          UnhealthyThresholdCount: 2,
-          HealthCheckTimeoutSeconds: 2,
-          HealthCheckIntervalSeconds: 5,
-          Matcher: { HttpCode: '200' },
-        };
-        ELB.modifyTargetGroup(params, (err, result) => {
-          err && console.log(err);
-          local.targetGroup = result.TargetGroups[0];
           next(err);
         });
       },
@@ -708,41 +692,64 @@ class ECSManager {
     });
   }
 
-  _createTaretGroup({ account, user }, callback) {
-    const params = {
-      Name: this.targetGroupName({ account, user }),
-      Protocol: 'HTTP',
+  _createTaretGroup({ account, user, HealthCheckPath }, callback) {
+    async.waterfall([
+      (next) => {
+        const params = {
+          Name: this.targetGroupName({ account, user }),
+          Protocol: 'HTTP',
 
-      // todo: 意味違うけど、この値をつかうのではどうでしょうか？
-      // HealthCheckPort: 'traffic-port',
+          // todo: 意味違うけど、この値をつかうのではどうでしょうか？
+          // HealthCheckPort: 'traffic-port',
 
-      Port: 80,
-      VpcId: this.params.VpcId,
-    };
-    ELB.createTargetGroup(params, (err, data) => {
-      if (err && err.code === 'DuplicateTargetGroupName') {
-        const Names = [params.Name];
-        ELB.describeTargetGroups({ Names }, (err2, result) => {
-          if (err2 || !result || result.TargetGroups.length !== 1) {
-            err2 && console.log(err2);
-            callback(err2);
+          Port: 80,
+          VpcId: this.params.VpcId,
+        };
+        ELB.createTargetGroup(params, (err, data) => {
+          if (err && err.code === 'DuplicateTargetGroupName') {
+            const Names = [params.Name];
+            ELB.describeTargetGroups({ Names }, (err2, result) => {
+              if (err2 || !result || result.TargetGroups.length !== 1) {
+                next(err2);
+              } else {
+                // もし ['Protocol', 'Port', 'VpcId'] の何れかが違うならエラー
+                const group = result.TargetGroups[0];
+                if (_.find(['Protocol', 'Port', 'VpcId'], k => params[k] !== group[k])) {
+                  console.log(err);
+                  console.log(`管理コンソールでターゲットグループ削除してください : ${params.Name}`);
+                  next(err);
+                } else {
+                  next(null, group);
+                }
+              }
+            });
+          } else if (err || !data) {
+            next(err);
           } else {
-            // もし ['Protocol', 'Port', 'VpcId'] の何れかが違うならエラー
-            const group = result.TargetGroups[0];
-            if (_.find(['Protocol', 'Port', 'VpcId'], k => params[k] !== group[k])) {
-              console.log(err);
-              console.log(`管理コンソールでターゲットグループ削除してください : ${params.Name}`);
-              callback(err);
-            } else {
-              callback(null, group);
-            }
+            next(err, data.TargetGroups[0]);
           }
         });
-      } else if (err || !data) {
-        callback(err);
-      } else {
-        callback(err, data.TargetGroups[0]);
-      }
+      },
+      (group, next) => {
+        const { TargetGroupArn } = group;
+        const params = {
+          TargetGroupArn,
+          HealthCheckProtocol: 'HTTP',
+          HealthCheckPath,
+          HealthCheckPort: 'traffic-port',
+          HealthyThresholdCount: 2,
+          UnhealthyThresholdCount: 2,
+          HealthCheckTimeoutSeconds: 2,
+          HealthCheckIntervalSeconds: 5,
+          Matcher: { HttpCode: '200' },
+        };
+        ELB.modifyTargetGroup(params, (err, result) => {
+          next(err, result.TargetGroups[0]);
+        });
+      },
+    ], (err, group) => {
+      err && console.log(err);
+      callback(err, group);
     });
   }
 
