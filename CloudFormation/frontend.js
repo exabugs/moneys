@@ -132,6 +132,12 @@ Resources.LBSecurityGroup = {
         ToPort: '80',
         CidrIp: { Ref: 'SSHLocation' },
       },
+      {
+        IpProtocol: 'tcp',
+        FromPort: '443',
+        ToPort: '443',
+        CidrIp: { Ref: 'SSHLocation' },
+      },
     ],
   },
 };

@@ -1,5 +1,6 @@
 {
   "name": "名前",
+  "description": "説明",
   "value": "値",
   "portMappings": "ポート番号",
   "mountPoints": "マウント",

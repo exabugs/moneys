@@ -194,6 +194,9 @@ class ECSManager {
           if (err) {
             next(err);
           } else {
+//            const arn = 'arn:aws:acm:ap-northeast-1:521185453080:certificate/c5fe886a-715b-439d-846b-439cbeabadfc';
+            const arn = 'arn:aws:acm:ap-northeast-1:521185453080:certificate/70659565-3ea7-4369-957d-c68a7ba21220';
+
             const { TargetGroupArn } = group;
             async.mapSeries(local.image.portMappings, (port, next) => {
               const { LoadBalancerArn } = local.loadBalancer;
@@ -201,8 +204,8 @@ class ECSManager {
                 DefaultActions: [{ TargetGroupArn, Type: 'forward' }],
                 LoadBalancerArn,
                 Port: port.listenerPort,
-                Protocol: 'HTTP',
-                // Certificates: [{ CertificateArn: 'STRING_VALUE' }],
+                Protocol: 'HTTPS',
+                Certificates: [{ CertificateArn: arn }],
               };
               ELB.createListener(params, (err, results) => {
                 const listener = results.Listeners[0];

@@ -13,8 +13,8 @@
       "key": "name"
     },
     {
-      "width": 80,
-      "key": "ports"
+      "width": 160,
+      "key": "description"
     },
     {
       "width": 100,

@@ -6,6 +6,10 @@
       "key": "name"
     },
     {
+      "type": "TextField",
+      "key": "description"
+    },
+    {
       "common": "environment",
       "array": true,
       "key": "environment"
