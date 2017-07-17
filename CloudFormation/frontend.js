@@ -89,6 +89,13 @@ Parameters.StorageGWAMI = {
   Description: 'StorageGW AMI',
 };
 
+// Certificate
+Parameters.Certificate = {
+  Type: 'String',
+  Default: 'arn:aws:acm:ap-northeast-1:521185453080:certificate/70659565-3ea7-4369-957d-c68a7ba21220',
+  Description: 'Certificate',
+};
+
 //
 // Mappings
 //
@@ -940,6 +947,12 @@ Outputs.LBSecurityGroup = {
   Description: 'LBSecurityGroup',
   Value: { Ref: 'LBSecurityGroup' },
   Export: { Name: exportName('LBSecurityGroup') },
+};
+
+Outputs.Certificate = {
+  Description: 'Certificate',
+  Value: { Ref: 'Certificate' },
+  Export: { Name: exportName('Certificate') },
 };
 
 //
