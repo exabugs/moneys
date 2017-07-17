@@ -11,6 +11,7 @@ const CF = new AWS.CloudFormation({ CredentialProvider });
 const ECS = new AWS.ECS({ CredentialProvider });
 const ECR = new AWS.ECR({ CredentialProvider });
 const ELB = new AWS.ELBv2({ CredentialProvider });
+const DNS = new AWS.Route53({ CredentialProvider });
 
 // const S3 = new AWS.S3({ CredentialProvider });
 // const SG = new AWS.StorageGateway({ CredentialProvider });
@@ -97,12 +98,15 @@ class ECSManager {
       Cluster: cluster,
       VpcId: false,
       Region: process.env.AWS_REGION,
-      Domain: false,
+      Domain: false, // 内部ドメイン
       AccountId: false,
       PublicSubnet0: false,
       PublicSubnet1: false,
       LBSecurityGroup: false,
       ECSServiceRole: false,
+      PublicDomain: false, // 公開ドメイン
+      HostedZone: false, // HostedZoneID
+      Certificate: false, // SSL証明書
       NFS: false, // StorageGW で提供される NFS
       MountNFS: false, // 開発ローカル NFSマウント
       LocalNFS: `${__dirname}/../../nfs`, // ローカルNFSマウントポイント (自信がvolumeで与えられる)
@@ -188,15 +192,31 @@ class ECSManager {
         });
       },
       (next) => {
+        const ResourceRecordSet = {
+          Type: 'A',
+          Name: [account.key, this.params.PublicDomain, ''].join('.'),
+          AliasTarget: {
+            DNSName: local.loadBalancer.DNSName,
+            EvaluateTargetHealth: true,
+            HostedZoneId: local.loadBalancer.CanonicalHostedZoneId,
+          },
+        };
+        const Changes = [{ Action: 'UPSERT', ResourceRecordSet }];
+        const params = {
+          HostedZoneId: this.params.HostedZone,
+          ChangeBatch: { Changes },
+        };
+        DNS.changeResourceRecordSets(params, (err) => {
+          next(err);
+        });
+      },
+      (next) => {
         // DefaultTargetGroup 作成
         const HealthCheckPath = local.path;
         this._createTaretGroup({ account, HealthCheckPath }, (err, group) => {
           if (err) {
             next(err);
           } else {
-//            const arn = 'arn:aws:acm:ap-northeast-1:521185453080:certificate/c5fe886a-715b-439d-846b-439cbeabadfc';
-            const arn = 'arn:aws:acm:ap-northeast-1:521185453080:certificate/70659565-3ea7-4369-957d-c68a7ba21220';
-
             const { TargetGroupArn } = group;
             async.mapSeries(local.image.portMappings, (port, next) => {
               const { LoadBalancerArn } = local.loadBalancer;
@@ -205,7 +225,7 @@ class ECSManager {
                 LoadBalancerArn,
                 Port: port.listenerPort,
                 Protocol: 'HTTPS',
-                Certificates: [{ CertificateArn: arn }],
+                Certificates: [{ CertificateArn: this.params.Certificate }],
               };
               ELB.createListener(params, (err, results) => {
                 const listener = results.Listeners[0];

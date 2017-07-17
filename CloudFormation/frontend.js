@@ -192,6 +192,20 @@ Resources.CloudwatchLogsGroup = {
 };
 
 //
+// DNS
+//
+
+Resources.HostedZone = {
+  Type: 'AWS::Route53::HostedZone',
+  Properties: {
+    HostedZoneConfig: {
+      Comment: 'Hosted Zone for Public Access',
+    },
+    Name: { Ref: 'PublicDomain' },
+  },
+};
+
+//
 // NFS
 //
 
@@ -961,6 +975,12 @@ Outputs.PublicDomain = {
   Description: 'PublicDomain',
   Value: { Ref: 'PublicDomain' },
   Export: { Name: exportName('PublicDomain') },
+};
+
+Outputs.HostedZone = {
+  Description: 'HostedZone',
+  Value: { Ref: 'HostedZone' },
+  Export: { Name: exportName('HostedZone') },
 };
 
 Outputs.Certificate = {
