@@ -290,7 +290,9 @@ const ECSClusterUserData = () => {
     'echo \'ECS_CLUSTER=', { Ref: 'ECSCluster' }, '\' >> /etc/ecs/ecs.config\n',
 
     // DNS
-    'sed -i -e \'s/search .*/search ', importValue('Domain'), '/\' /etc/resolv.conf\n',
+    // 'sed -i -e \'s/search .*/search ', importValue('Domain'), '/\' /etc/resolv.conf\n', // // amzn-ami-2017.03.b
+    'echo \'search ', importValue('Domain'), '\' >> /etc/resolv.conf\n', // // amzn-ami-2017.03.d
+
     'sed -i -e \'s/PEERDNS=yes/PEERDNS=no/\' /etc/sysconfig/network-scripts/ifcfg-eth0\n',
 
     // NFS
