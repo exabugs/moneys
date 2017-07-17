@@ -89,10 +89,18 @@ Parameters.StorageGWAMI = {
   Description: 'StorageGW AMI',
 };
 
+// PublicDomain
+Parameters.PublicDomain = {
+  Type: 'String',
+  Default: 'webide.exabugs.com',
+  Description: 'PublicDomain',
+};
+
 // Certificate
 Parameters.Certificate = {
   Type: 'String',
-  Default: 'arn:aws:acm:ap-northeast-1:521185453080:certificate/70659565-3ea7-4369-957d-c68a7ba21220',
+  // *.webide.exabugs.com
+  Default: 'arn:aws:acm:ap-northeast-1:521185453080:certificate/0f78b17e-d455-42c4-bf15-8293852c737b',
   Description: 'Certificate',
 };
 
@@ -947,6 +955,12 @@ Outputs.LBSecurityGroup = {
   Description: 'LBSecurityGroup',
   Value: { Ref: 'LBSecurityGroup' },
   Export: { Name: exportName('LBSecurityGroup') },
+};
+
+Outputs.PublicDomain = {
+  Description: 'PublicDomain',
+  Value: { Ref: 'PublicDomain' },
+  Export: { Name: exportName('PublicDomain') },
 };
 
 Outputs.Certificate = {
