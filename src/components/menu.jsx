@@ -12,7 +12,7 @@ import MoreVertIcon from 'material-ui/svg-icons/navigation/more-vert';
 import icons from './icons';
 import menus from '../config/menus.json';
 
-const title = 'WebIDE';
+const title = window.title;
 
 // SideMenu
 const SideMenu = ({ open, onCloseMenu, onSetMenu, onToggleMenu }) => (
