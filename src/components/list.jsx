@@ -1,8 +1,8 @@
 import React from 'react';
-import { reduxForm } from 'redux-form';
+import { reduxForm, Field } from 'redux-form';
 import {
   Table, TableBody, TableHeader, TableFooter,
-  TableHeaderColumn, TableRow, TableRowColumn
+  TableHeaderColumn, TableRow, TableRowColumn,
 } from 'material-ui/Table';
 import RaisedButton from 'material-ui/RaisedButton';
 import DropDownMenu from 'material-ui/DropDownMenu';
@@ -12,19 +12,11 @@ import moment from 'moment-timezone';
 import numeral from 'numeral';
 import { Link, browserHistory } from 'react-router';
 import IconButton from 'material-ui/IconButton';
-import { Field, FieldArray } from 'redux-form';
-import Dropzone from 'react-dropzone';
+// import Dropzone from 'react-dropzone';
 
 import {
-  AutoComplete,
-  Checkbox,
-  RadioButtonGroup,
   SelectField,
   TextField,
-  DatePicker,
-  TimePicker,
-  Slider,
-  Toggle
 } from 'redux-form-material-ui';
 
 import config from '../config/list';
@@ -50,8 +42,10 @@ const styles = {
     border: 'solid 1px #eeeeee',
     borderSpacing: 0,
   },
-  td: {
-    'verticalAlign': 'middle',
+  conditionTD: {
+    verticalAlign: 'middle',
+    paddingLeft: 8,
+    paddingRight: 8,
   },
 };
 
@@ -76,30 +70,6 @@ function format(item, field, onDownload) {
       return value;
     }
   });
-}
-
-function equal(a, b) {
-  if (a.length !== b.length) return false;
-  for (var i = 0; i < a.length; i += 1) {
-    if (a[i] !== b[i]) return false;
-  }
-  return true;
-}
-
-class MyTableBody extends TableBody {
-  componentWillReceiveProps(nextProps) {
-    console.log('componentWillReceiveProps');
-    console.log(this.state);
-    console.log(this.props);
-    const selectedRows = nextProps.selectedRows;
-    if (!equal(this.state.selectedRows, selectedRows)) {
-      this.setState({ selectedRows });
-    }
-  }
-
-  // shouldComponentUpdate() {
-  //   return true;
-  // }
 }
 
 const formattedMessage = (field, item) =>
@@ -137,10 +107,10 @@ const Search = ({ props, collection, field }) => {
       );
     case 'SelectField':
       return (
-        <Field name={field.key} component={SelectField} hintText="Select something"
+        <Field name={field.key} component={SelectField} hintText={field.key}
                style={{ position: 'relative', top: 10 }}
         >
-          {items[field.itemsKey].map(item => (
+          {getValue(items, field.itemsKey).map(item => (
             <MenuItem key={item} value={item} primaryText={formattedMessage(field, item)} />
           ))}
         </Field>
@@ -150,17 +120,30 @@ const Search = ({ props, collection, field }) => {
   }
 };
 
+const doSearch = ({ props, condition, key }) => {
+  const { params, onSearch, context } = props;
+  const { collection } = params;
+  let { order, orderBy } = context[collection] || {};
+
+  if (key) {
+    order = (key !== orderBy || order === 'desc') ? 'asc' : 'desc';
+    orderBy = key;
+  }
+  console.log(`orderBy:${orderBy} order:${order}`);
+  onSearch({ collection, condition, order, orderBy });
+};
+
 const Content = (props) => {
   const { params } = props;
   const { collection } = params;
-  const { items, onLoadNext, onRowSelection, onSelected, onSearch, onDrop, onDownload } = props;
-  const { handleSubmit, pristine, reset, submitting } = props;
+  const { items, onLoadNext, onSelected, onDownload } = props;
+  const { handleSubmit } = props;
 
   const { search, fields } = config.modules[collection];
 
 
   const context = props.context[collection] || {};
-  const { selected = {}, indexes = [] } = context;
+  const { selected = {}, order, orderBy } = context;
 
   const selectedRows = [];
   items.forEach((item, i) => {
@@ -178,21 +161,25 @@ const Content = (props) => {
 
   // allRowsSelected
 
+  const _sortIcon = order => <span style={{ color: '#B2423E' }}>{icons[order]}</span>;
+
+  const sortIcon = (align, sort, order) => align ? (sort ? _sortIcon(order) : icons.sort) : '';
+
   return (
-    <form onSubmit={handleSubmit(condition => onSearch({ collection, condition }))}>
+    <form onSubmit={handleSubmit(condition => doSearch({ props, condition }))}>
       <h4><FormattedMessage id={`menu.${collection}`} /></h4>
 
       <table style={styles.table}>
         <tbody>
           {search.map((field, i) =>
             <tr key={i}>
-              <td style={styles.td}>
+              <td style={styles.conditionTD}>
                 <FormattedMessage
                   id={`modules.modules.${field.collection || collection}.${field.title || field.key}`} />
               </td>
-              <td style={styles.td}>:</td>
-              <td style={styles.td}>
-                {Search({ props, collection, field, handleSubmit, onSearch })}
+              <td>:</td>
+              <td style={styles.conditionTD}>
+                {Search({ props, collection, field })}
               </td>
             </tr>
           )}
@@ -202,44 +189,52 @@ const Content = (props) => {
       <RaisedButton
         style={styles.button}
         label={<FormattedMessage id="modules.clear" />}
-        onClick={handleSubmit(condition => onSearch({ collection, condition }))}
+        onClick={handleSubmit(condition => doSearch({ props, condition }))}
       />
       <RaisedButton
         style={styles.button}
         label={<FormattedMessage id="modules.search" />}
         primary={true}
-        onClick={handleSubmit(condition => onSearch({ collection, condition }))}
+        onClick={handleSubmit(condition => doSearch({ props, condition }))}
       />
 
       <Table
         selectable={false}
       >
         <TableHeader displaySelectAll={false} adjustForCheckbox={false}>
-          <TableRow>
+          <TableRow
+            onCellClick={(e, l, c) => {
+              const { key } = fields[c - 2];
+              handleSubmit(condition => doSearch({ props, condition, key }))();
+            }}
+          >
             <TableHeaderColumn style={styles.detail}>
               <IconButton disabled={true}>
-                {icons['image/details']}
               </IconButton>
             </TableHeaderColumn>
             {fields.map((field) => {
-              const width = `${field.width}px`;
-              const textAlign = 'center';
+              const width = field.width;
+              const textAlign = field.align;
               const style = { width, textAlign };
               const _collection = field.collection || collection;
+              const sort = orderBy === field.key;
               return (
                 <TableHeaderColumn style={style} key={field.key}>
+                  {sortIcon(textAlign === 'right', sort, order)}
                   <FormattedMessage id={`modules.modules.${_collection}.${field.title || field.key}`} />
+                  {sortIcon(textAlign !== 'right', sort, order)}
                 </TableHeaderColumn>
               );
             })}
           </TableRow>
         </TableHeader>
 
-        <TableBody displayRowCheckbox={false}>
+        <TableBody displayRowCheckbox={false}
+                   showRowHover={true}
+        >
           {items.map((item) =>
-            <TableRow
-              key={item._id}
-            >
+            <TableRow key={item._id}>
+
               <TableRowColumn style={styles.detail}>
                 {mode === 'list' ?
                   <IconButton containerElement={detail(item)}>
@@ -252,7 +247,7 @@ const Content = (props) => {
               </TableRowColumn>
 
               {fields.map((field) => {
-                const width = `${field.width}px`;
+                const width = field.width;
                 const textAlign = field.align;
                 const style = { width, textAlign };
                 return (
@@ -263,7 +258,6 @@ const Content = (props) => {
                   </TableRowColumn>
                 );
               })}
-
 
             </TableRow>
           )}

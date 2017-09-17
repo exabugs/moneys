@@ -50,15 +50,17 @@ export function* loadNext(para) {
   console.log('loadNext');
   const token = yield select(state => state.session.token);
 
-  const list = yield select(state => state.list);
-  const { collection, owner, context } = list;
-  const { primaryGroup } = owner[collection];
-  const { condition } = context[collection] || {};
+  const list = yield select(state => state.list) || {};
+  const { collection, owner = {}, context } = list;
+  const { primaryGroup } = owner[collection] || {};
+  const { condition, order, orderBy } = context[collection] || {};
 
   const params = {
     collection,
 //    ..._.omit(para, 'type'),
     condition,
+    order,
+    orderBy,
   };
 
   if (primaryGroup) {

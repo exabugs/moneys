@@ -34,11 +34,14 @@ const ListReducer = (state = data, action) => {
     }
     case DO_SEARCH: {
       const { collection, context } = state;
+      const { order, orderBy } = action;
       const condition = action.condition;
       const newContext = { ...context };
       newContext[collection] = {
         ...newContext[collection],
         condition,
+        order,
+        orderBy,
       };
       return { ...state, context: newContext };
     }

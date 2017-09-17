@@ -64,10 +64,12 @@ export const doSelect = ({ item }) => ({
   item,
 });
 
-export const doSearch = ({ collection, condition }) => ({
+export const doSearch = ({ collection, condition, order, orderBy }) => ({
   type: DO_SEARCH,
   collection,
   condition,
+  order,
+  orderBy,
 });
 
 
