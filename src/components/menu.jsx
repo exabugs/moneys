@@ -3,6 +3,7 @@ import AppBar from 'material-ui/AppBar';
 import { Link } from 'react-router';
 import Drawer from 'material-ui/Drawer';
 import MenuItem from 'material-ui/MenuItem';
+import Paper from 'material-ui/Paper';
 import { FormattedMessage } from 'react-intl';
 
 import IconButton from 'material-ui/IconButton';
@@ -82,7 +83,9 @@ const Menu = (props) => {
         }
       />
 
-      {children}
+      <Paper style={{ padding: 16, margin: 16 }}>
+        {children}
+      </Paper>
 
     </div>
   );
