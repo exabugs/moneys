@@ -67,7 +67,7 @@ function format(item, field, onDownload) {
     } else if (field.type && field.type === 'Date') {
       return moment(value).tz(timezone).format(field.format);
     } else if (field.type && field.type === 'download') {
-      return <RaisedButton onClick={() => onDownload({ key: v })} >{v}</RaisedButton>;
+      return <RaisedButton onClick={() => onDownload({ key: v })} label={v} />;
     } else if (field.itemsKey) {
       return <FormattedMessage id={`modules.items.${field.itemsKey}.${value}`} defaultMessage={`${value}`} />
     } else if (field.type && field.type === 'Number') {
@@ -201,17 +201,15 @@ const Content = (props) => {
 
       <RaisedButton
         style={styles.button}
+        label={<FormattedMessage id="modules.clear" />}
         onClick={handleSubmit(condition => onSearch({ collection, condition }))}
-      >
-        <FormattedMessage id="modules.clear" />
-      </RaisedButton>
+      />
       <RaisedButton
         style={styles.button}
+        label={<FormattedMessage id="modules.search" />}
         primary={true}
         onClick={handleSubmit(condition => onSearch({ collection, condition }))}
-      >
-        <FormattedMessage id="modules.search" />
-      </RaisedButton>
+      />
 
       <Table
         selectable={false}
@@ -277,23 +275,23 @@ const Content = (props) => {
             <TableRowColumn style={styles.footerLeft}>
               <RaisedButton
                 style={styles.button}
+                label={<FormattedMessage id="modules.new" />}
                 onClick={() => browserHistory.push(`/modules/${collection}/new`)}
-              >
-                <FormattedMessage id="modules.new" />
-              </RaisedButton>
+              />
             </TableRowColumn>
 
             <TableRowColumn>
-              <Dropzone onDrop={(file) => onDrop({ collection, file })} />
+              {
+                // <Dropzone onDrop={(file) => onDrop({ collection, file })} />
+              }
             </TableRowColumn>
 
             <TableRowColumn style={styles.footerRight}>
               <RaisedButton
                 style={styles.button}
+                label={<FormattedMessage id="modules.next" />}
                 onClick={() => onLoadNext({ skip: items.length })}
-              >
-                <FormattedMessage id="modules.next" />
-              </RaisedButton>
+              />
             </TableRowColumn>
           </TableRow>
         </TableFooter>

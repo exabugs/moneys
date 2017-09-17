@@ -4,7 +4,6 @@ import Menu from '../components/menu';
 
 
 const mapStateToProps = (state) => {
-  console.log(state);
   return { ...state.menu };
 };
 

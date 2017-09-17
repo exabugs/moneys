@@ -6,7 +6,6 @@ import { reset, remove, submitDetail, select, drop } from '../actions/detail';
 
 
 const mapStateToProps = (state) => {
-  console.log(state);
   return { ...state.detail };
 };
 

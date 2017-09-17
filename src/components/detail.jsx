@@ -72,35 +72,32 @@ const Detail = (props) => {
             <td>
               <RaisedButton
                 style={styles.button}
+                label={<FormattedMessage id="modules.cancel" />}
                 onClick={() => browserHistory.push(`/modules/${collection}`)}
-              >
-                <FormattedMessage id="modules.cancel" />
-              </RaisedButton>
+              />
             </td>
             <td style={styles.footerCenter}>
               <RaisedButton
                 style={styles.button}
+                label={<FormattedMessage id="modules.reset" />}
                 disabled={submitting}
                 onClick={handleSubmit(detail => onReset({ collection, detail }))}
-              >
-                <FormattedMessage id="modules.reset" />
-              </RaisedButton>
+              />
               <RaisedButton
                 style={styles.button}
+                label={<FormattedMessage id="modules.remove" />}
                 disabled={submitting}
                 onClick={handleSubmit(detail => onRemove({ collection, detail }))}
-              >
-                <FormattedMessage id="modules.remove" />
-              </RaisedButton>
+              />
             </td>
             <td>
               <RaisedButton
                 style={styles.button}
+                label={<FormattedMessage id="modules.save" />}
+                primary={true}
                 disabled={submitting}
                 onClick={handleSubmit(detail => onSubmitDetail({ collection, detail }))}
-              >
-                <FormattedMessage id="modules.save" />
-              </RaisedButton>
+              />
             </td>
           </tr>
         </tbody>

@@ -219,12 +219,14 @@ const Parts = (props) => {
               <tr>
                 <td>
                   <Field {...fieldDef.props} name={name} component={Slider}
-                         style={{ width: 600, height: 32, margin: 0 }} />
+                         style={{ width: 500, height: 32, margin: 0, marginRight: 10 }} />
                 </td>
                 <td>
-                  <Field underlineShow={false} name={name} component={TextField} disabled={true}
-                         style={{ width: 80, textAlign: 'right' }} />
-                  <FormattedMessage id={`modules.unit.${fieldDef.unit}`} />
+                  <Field underlineShow={true} name={name} component={TextField} disabled={false}
+                         style={{ width: 90 }} inputStyle={{ textAlign: 'right' }} />
+                  <span style={{ marginLeft: 3 }}>
+                    <FormattedMessage id={`modules.unit.${fieldDef.unit}`} />
+                  </span>
                 </td>
               </tr>
             </tbody>
