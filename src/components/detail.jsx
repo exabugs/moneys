@@ -2,11 +2,7 @@ import React from 'react';
 import { reduxForm } from 'redux-form';
 import { FormattedMessage } from 'react-intl';
 import RaisedButton from 'material-ui/RaisedButton';
-import { Link } from 'react-router';
 import { browserHistory } from 'react-router';
-import {
-  TableFooter, TableRow, TableRowColumn
-} from 'material-ui/Table';
 
 import EditorParts from './EditorParts';
 
@@ -26,10 +22,10 @@ const styles = {
 const Detail = (props) => {
   const { params } = props;
   console.log(params);
-  const { collection, id } = params; // URL param
+  const { collection } = params; // URL param
 
-  const { onReset, onRemove, onSubmitDetail, onSelect, onDrop, detail } = props; // Container
-  const { handleSubmit, pristine, reset, submitting } = props;
+  const { onReset, onRemove, onSubmitDetail, onSelect, onDrop } = props; // Container
+  const { handleSubmit, submitting } = props;
 
   const fieldDefs = config.modules[collection];
 

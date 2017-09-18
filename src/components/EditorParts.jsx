@@ -2,7 +2,6 @@ import React from 'react';
 
 import { Table, TableBody, TableRow, TableRowColumn } from 'material-ui/Table';
 
-import RaisedButton from 'material-ui/RaisedButton';
 import IconButton from 'material-ui/IconButton';
 
 import { FormattedMessage } from 'react-intl';
@@ -19,7 +18,6 @@ import AC from 'material-ui/AutoComplete';
 
 import {
   AutoComplete,
-  Checkbox,
   RadioButtonGroup,
   SelectField,
   TextField,
@@ -61,7 +59,7 @@ import items from '../config/items';
 
 const styles = {
   table: {
-    border: 'solid 0px #eeeeee',
+    border: 'solid 0px #f3f3f3',
     borderRightWidth: 1,
     borderSpacing: 0,
   },
@@ -75,7 +73,7 @@ const styles = {
   },
   checkbox: {},
   title_column: {
-    backgroundColor: '#eeeeee',
+    backgroundColor: '#E4E7F5',
     width: 120,
   },
   button: {
@@ -195,7 +193,7 @@ const Parts = (props) => {
       );
     case 'AutoComplete':
       return (
-        <Field name={name} component={AutoComplete} hintText="Type anything"
+        <Field name={name} component={AutoComplete} hintText={name}
                maxSearchResults={20}
                filter={AC.caseInsensitiveFilter}
                dataSource={items[itemsKey]}
@@ -203,10 +201,10 @@ const Parts = (props) => {
       );
     case 'SelectField':
       return (
-        <Field name={name} component={SelectField} hintText="Type anything"
+        <Field name={name} component={SelectField} hintText={name}
                style={{ position: 'relative', top: 10 }}
         >
-          {items[itemsKey].map(item => (
+          {getValue(items, itemsKey).map(item => (
             <MenuItem key={item} value={item} primaryText={formattedMessage(fieldDef, item)} />
           ))}
         </Field>
