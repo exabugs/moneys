@@ -1,6 +1,8 @@
 import _ from 'underscore';
 import moment from 'moment';
 
+import claims from './claims.json';
+import customers from './customers.json';
 import images from './images.json';
 import accounts from './accounts.json';
 import groups from './groups.json';
@@ -13,6 +15,8 @@ import common from './_common.json';
 
 const config = {
   modules: {
+    claims,
+    customers,
     images,
     accounts,
     groups,

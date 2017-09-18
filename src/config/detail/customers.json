@@ -1,15 +1,5 @@
 {
-  "collection": "users",
-  "indexes": [
-    {
-      "index": {
-        "userName": 1
-      },
-      "option": {
-        "unique": true
-      }
-    }
-  ],
+  "collection": "customers",
   "fieldDefs": [
     {
       "type": "TextField",
@@ -17,15 +7,15 @@
     },
     {
       "type": "TextField",
-      "key": "userName"
+      "key": "tel"
     },
     {
       "type": "TextField",
-      "key": "order"
+      "key": "postcode"
     },
     {
       "type": "TextField",
-      "key": "email"
+      "key": "address"
     },
     {
       "common": "valid",

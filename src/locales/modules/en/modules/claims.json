@@ -1,0 +1,16 @@
+{
+  "customer": "顧客",
+  "name": "名前",
+  "date": "日付",
+  "product": "商品名",
+  "productDetail": "商品明細",
+  "billing": "請求金額",
+  "discount": "値引",
+  "consumptionTax": "消費税",
+  "subtotal": "計",
+  "withholdingTax": "源泉税",
+  "subtraction": "差引",
+  "advance": "立替金",
+  "total": "合計",
+  "status": "状態"
+}

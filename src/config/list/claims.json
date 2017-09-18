@@ -1,0 +1,74 @@
+{
+  "collection": "claims",
+  "sort": [],
+  "search": [
+    {
+      "type": "SelectField",
+      "itemsKey": "claims.status",
+      "title": "status",
+      "key": "status"
+    },
+    {
+      "type": "TextField",
+      "title": "customer",
+      "key": "customer.name"
+    }
+  ],
+  "fields": [
+    {
+      "width": 40,
+      "type": "TextField",
+      "align": "center",
+      "title": "status",
+      "itemsKey": "claims.status",
+      "key": "status"
+    },
+    {
+      "width": 60,
+      "title": "customer",
+      "align": "left",
+      "key": "customer.name"
+    },
+    {
+      "width": 60,
+      "common": "date",
+      "align": "center",
+      "key": "date"
+    },
+    {
+      "width": 50,
+      "align": "left",
+      "key": "product"
+    },
+    {
+      "width": 100,
+      "type": "Number",
+      "align": "right",
+      "key": "billing"
+    },
+    {
+      "width": 60,
+      "type": "Number",
+      "align": "right",
+      "key": "subtotal"
+    },
+    {
+      "width": 60,
+      "type": "Number",
+      "align": "right",
+      "key": "subtraction"
+    },
+    {
+      "width": 60,
+      "type": "Number",
+      "align": "right",
+      "key": "advance"
+    },
+    {
+      "width": 100,
+      "type": "Number",
+      "align": "right",
+      "key": "total"
+    }
+  ]
+}

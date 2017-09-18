@@ -32,7 +32,7 @@ const styles = {
   },
 };
 
-const copyright = '(c) 2016-2017 DreamArts Corp. All right reserved.';
+const copyright = '(c) 2017 ShonanBlue Corp. All right reserved.';
 
 const Session = (props) => {
   const { onLogin, state } = props;

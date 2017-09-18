@@ -1,8 +1,9 @@
 import _ from 'underscore';
 
+import claims from './claims.json';
+import customers from './customers.json';
 import images from './images.json';
 import accounts from './accounts.json';
-import groups from './groups.json';
 import users from './users.json';
 import passwords from './passwords.json';
 import sessions from './sessions.json';
@@ -12,9 +13,10 @@ import common from './_common.json';
 
 const config = {
   modules: {
+    claims,
+    customers,
     images,
     accounts,
-    groups,
     users,
     passwords,
     sessions,

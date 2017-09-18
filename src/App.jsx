@@ -24,16 +24,6 @@ import NotFound from './components/NotFound';
 
 import locale_en from './locales/en';
 
-// http://qiita.com/usagi-f/items/24418c50faa6a5931ba8
-const muiTheme = getMuiTheme({
-  appBar: {
-    height: 56, // Instead of 64
-  },
-  palette: {
-    disabledColor: fade(darkBlack, 0.6),
-  },
-});
-
 // Session 関連
 import SessionContainer from './containers/session';
 import SessionReducer from './reducers/session';
@@ -53,6 +43,19 @@ import DetailContainer from './containers/detail';
 import DetailReducer from './reducers/detail';
 import { loadDetail, doneSelect } from './actions/detail';
 
+
+// http://qiita.com/usagi-f/items/24418c50faa6a5931ba8
+const muiTheme = getMuiTheme({
+  appBar: {
+    height: 56, // Instead of 64
+  },
+  palette: {
+    primary1Color: '#3F51B5',
+    primary2Color: '#606FC7',
+    primary3Color: '#8691D4',
+    disabledColor: fade(darkBlack, 0.6),
+  },
+});
 
 const sagaMiddleware = createSagaMiddleware();
 

@@ -1,3 +1,5 @@
+import claims from './claims.json';
+import customers from './customers.json';
 import images from './images.json';
 import accounts from './accounts.json';
 import groups from './groups.json';
@@ -11,6 +13,8 @@ import _common from './_common.json';
 export default {
   _common,
 
+  claims,
+  customers,
   images,
   accounts,
   groups,

@@ -5,18 +5,13 @@
     "icon": "action/home"
   },
   {
-    "link": "/modules/images",
-    "text": "images",
+    "link": "/modules/claims",
+    "text": "claims",
     "icon": "communication/comment"
   },
   {
-    "link": "/modules/accounts",
-    "text": "accounts",
-    "icon": "communication/comment"
-  },
-  {
-    "link": "/modules/groups",
-    "text": "groups",
+    "link": "/modules/customers",
+    "text": "customers",
     "icon": "communication/comment"
   },
   {
@@ -27,16 +22,6 @@
   {
     "link": "/modules/passwords",
     "text": "passwords",
-    "icon": "communication/comment"
-  },
-  {
-    "link": "/modules/sessions",
-    "text": "sessions",
-    "icon": "communication/comment"
-  },
-  {
-    "link": "/modules/files",
-    "text": "files",
     "icon": "communication/comment"
   }
 ]

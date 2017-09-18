@@ -1,0 +1,32 @@
+{
+  "collection": "customers",
+  "sort": [],
+  "search": [
+    {
+      "type": "TextField",
+      "key": "name"
+    }
+  ],
+  "fields": [
+    {
+      "width": 100,
+      "align": "left",
+      "key": "name"
+    },
+    {
+      "width": 100,
+      "align": "left",
+      "key": "tel"
+    },
+    {
+      "width": 50,
+      "align": "left",
+      "key": "postcode"
+    },
+    {
+      "width": 150,
+      "align": "left",
+      "key": "address"
+    }
+  ]
+}

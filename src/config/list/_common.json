@@ -10,6 +10,11 @@
     "collection": "_common",
     "key": "location"
   },
+  "date": {
+    "align": "center",
+    "type": "Date",
+    "format": "YYYY-MM-DD"
+  },
   "datetime": {
     "align": "center",
     "type": "Date",

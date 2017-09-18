@@ -6,10 +6,6 @@
       "key": "name"
     },
     {
-      "common": "service",
-      "key": "service"
-    },
-    {
       "common": "valid",
       "key": "valid"
     }

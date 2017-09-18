@@ -1,0 +1,106 @@
+{
+  "collection": "claims",
+  "fieldDefs": [
+    {
+      "common": "customer",
+      "key": "customer"
+    },
+    {
+      "type": "Date",
+      "key": "date"
+    },
+    {
+      "type": "TextField",
+      "key": "product"
+    },
+    {
+      "type": "TextField",
+      "key": "productDetail"
+    },
+    {
+      "type": "Slider",
+      "props": {
+        "min": 0,
+        "max": 10000000,
+        "step": 100
+      },
+      "unit": "yen",
+      "key": "billing"
+    },
+    {
+      "type": "Slider",
+      "props": {
+        "min": 0,
+        "max": 1000000,
+        "step": 100
+      },
+      "unit": "yen",
+      "key": "discount"
+    },
+    {
+      "type": "Slider",
+      "props": {
+        "min": 0,
+        "max": 1000000,
+        "step": 100
+      },
+      "unit": "yen",
+      "key": "consumptionTax"
+    },
+    {
+      "type": "Slider",
+      "props": {
+        "min": 0,
+        "max": 10000000,
+        "step": 100
+      },
+      "unit": "yen",
+      "key": "subtotal"
+    },
+    {
+      "type": "Slider",
+      "props": {
+        "min": 0,
+        "max": 1000000,
+        "step": 100
+      },
+      "unit": "yen",
+      "key": "withholdingTax"
+    },
+    {
+      "type": "Slider",
+      "props": {
+        "min": 0,
+        "max": 1000000,
+        "step": 100
+      },
+      "unit": "yen",
+      "key": "subtraction"
+    },
+    {
+      "type": "Slider",
+      "props": {
+        "min": 0,
+        "max": 1000000,
+        "step": 100
+      },
+      "unit": "yen",
+      "key": "advance"
+    },
+    {
+      "type": "Slider",
+      "props": {
+        "min": 0,
+        "max": 10000000,
+        "step": 100
+      },
+      "unit": "yen",
+      "key": "total"
+    },
+    {
+      "type": "SelectField",
+      "itemsKey": "claims.status",
+      "key": "status"
+    }
+  ]
+}

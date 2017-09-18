@@ -4,71 +4,6 @@
     "titleGroup": "_common",
     "key": "_id"
   },
-  "file": {
-    "selector": "List",
-    "collection": "files",
-    "fieldDefs": [
-      {
-        "common": "_id",
-        "key": "_id"
-      },
-      {
-        "type": "TextField",
-        "key": "name"
-      },
-      {
-        "visible": false,
-        "key": "length"
-      }
-    ]
-  },
-  "image": {
-    "selector": "List",
-    "collection": "images",
-    "fieldDefs": [
-      {
-        "visible": false,
-        "common": "_id",
-        "key": "_id"
-      },
-      {
-        "type": "TextField",
-        "key": "name"
-      }
-    ]
-  },
-  "service": {
-    "fieldDefs": [
-      {
-        "common": "image",
-        "key": "image"
-      },
-      {
-        "type": "TextField",
-        "key": "tag"
-      },
-      {
-        "type": "Slider",
-        "props": {
-          "min": 0,
-          "max": 1000,
-          "step": 100
-        },
-        "unit": "MB",
-        "key": "memory"
-      },
-      {
-        "type": "Slider",
-        "props": {
-          "min": 0,
-          "max": 1000,
-          "step": 100
-        },
-        "unit": "vcpu",
-        "key": "cpu"
-      }
-    ]
-  },
   "group": {
     "selector": "List",
     "collection": "groups",
@@ -93,51 +28,13 @@
       }
     ]
   },
-  "portMappings": {
-    "fieldDefs": [
-      {
-        "type": "Slider",
-        "props": {
-          "min": 1025,
-          "max": 10000,
-          "step": 1
-        },
-        "unit": "port",
-        "key": "containerPort"
-      },
-      {
-        "type": "Slider",
-        "props": {
-          "min": 1,
-          "max": 1024,
-          "step": 1
-        },
-        "unit": "port",
-        "key": "listenerPort"
-      }
-    ]
-  },
-  "environment": {
+  "customer": {
+    "selector": "List",
+    "collection": "customers",
     "fieldDefs": [
       {
         "type": "TextField",
         "key": "name"
-      },
-      {
-        "type": "TextField",
-        "key": "value"
-      }
-    ]
-  },
-  "mountPoints": {
-    "fieldDefs": [
-      {
-        "type": "TextField",
-        "key": "containerPath"
-      },
-      {
-        "type": "TextField",
-        "key": "sourcePath"
       }
     ]
   },
