@@ -1,5 +1,5 @@
 import { connect } from 'react-redux';
-import List from '../components/list';
+import List from '../components/List';
 
 import { loadNext, initOwner, selectItems, doSelect, doSearch, drop, download } from '../actions/list';
 import { detail } from '../actions/detail';

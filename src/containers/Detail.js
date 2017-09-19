@@ -1,6 +1,6 @@
 import { connect } from 'react-redux';
 import { browserHistory } from 'react-router';
-import Detail from '../components/detail';
+import Detail from '../components/Detail';
 
 import { reset, remove, submitDetail, select, drop } from '../actions/detail';
 

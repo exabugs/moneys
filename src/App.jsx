@@ -34,12 +34,12 @@ import MenuContainer from './containers/menu';
 import MenuReducer from './reducers/menu';
 
 // List 関連
-import ListContainer from './containers/list';
+import ListContainer from './containers/List';
 import ListReducer from './reducers/list';
 import { clear, setCollection, loadNext, initOwner } from './actions/list';
 
 // Detail 関連
-import DetailContainer from './containers/detail';
+import DetailContainer from './containers/Detail';
 import DetailReducer from './reducers/detail';
 import { loadDetail, doneSelect } from './actions/detail';
 
