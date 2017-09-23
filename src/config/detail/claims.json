@@ -18,89 +18,81 @@
       "key": "productDetail"
     },
     {
-      "type": "Slider",
-      "props": {
-        "min": 0,
-        "max": 10000000,
-        "step": 100
-      },
+      "type": "NumberField",
       "unit": "yen",
+      "validate": [
+        {
+          "condition": "0 <= :billing",
+          "message": "error.minus"
+        }
+      ],
       "key": "billing"
     },
     {
-      "type": "Slider",
-      "props": {
-        "min": 0,
-        "max": 1000000,
-        "step": 100
-      },
+      "type": "NumberField",
       "unit": "yen",
+      "validate": [
+        {
+          "condition": "0 <= :discount",
+          "message": "error.minus"
+        },
+        {
+          "condition": ":discount <= :billing",
+          "message": "error.discount.greater_than_billing"
+        }
+      ],
       "key": "discount"
     },
     {
-      "type": "Slider",
-      "props": {
-        "min": 0,
-        "max": 1000000,
-        "step": 100
-      },
+      "type": "NumberField",
       "unit": "yen",
-      "key": "consumptionTax"
+      "key": "consumptionTax",
+      "auto": "Math.floor( ( :billing - :discount ) * :consumptionTaxRate / 100 )",
+      "description": "description.consumptionTax"
     },
     {
-      "type": "Slider",
-      "props": {
-        "min": 0,
-        "max": 10000000,
-        "step": 100
-      },
+      "type": "NumberField",
       "unit": "yen",
-      "key": "subtotal"
+      "key": "withholdingTax",
+      "auto": "Math.floor( ( :billing - :discount ) * :withholdingTaxRate / 100 )",
+      "description": "description.withholdingTax"
     },
     {
-      "type": "Slider",
-      "props": {
-        "min": 0,
-        "max": 1000000,
-        "step": 100
-      },
+      "type": "NumberField",
       "unit": "yen",
-      "key": "withholdingTax"
-    },
-    {
-      "type": "Slider",
-      "props": {
-        "min": 0,
-        "max": 1000000,
-        "step": 100
-      },
-      "unit": "yen",
-      "key": "subtraction"
-    },
-    {
-      "type": "Slider",
-      "props": {
-        "min": 0,
-        "max": 1000000,
-        "step": 100
-      },
-      "unit": "yen",
+      "validate": [
+        {
+          "condition": "0 <= :advance",
+          "message": "error.minus"
+        }
+      ],
       "key": "advance"
     },
     {
-      "type": "Slider",
-      "props": {
-        "min": 0,
-        "max": 10000000,
-        "step": 100
-      },
+      "type": "NumberField",
       "unit": "yen",
-      "key": "total"
+      "key": "total",
+      "auto": "( :billing - :discount ) + :consumptionTax - :withholdingTax + :advance",
+      "description": "description.total"
     },
     {
       "type": "SelectField",
       "itemsKey": "claims.status",
       "key": "status"
+    },
+    {
+      "type": "NumberField",
+      "unit": "percent",
+      "key": "consumptionTaxRate",
+      "initial": "8",
+      "format": "0.00"
+    },
+    {
+      "type": "NumberField",
+      "unit": "percent",
+      "key": "withholdingTaxRate",
+      "initial": "10.21",
+      "format": "0.00"
     }
   ]
 }

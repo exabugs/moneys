@@ -12,5 +12,14 @@
   "subtraction": "差引",
   "advance": "立替金",
   "total": "合計",
-  "status": "状態"
+  "status": "状態",
+  "consumptionTaxRate": "消費税率",
+  "withholdingTaxRate": "源泉税率",
+  "description.consumptionTax": "( 請求金額 - 値引 ) x 消費税率  【小数点以下切り捨て】",
+  "description.withholdingTax": "( 請求金額 - 値引 ) x 源泉税率  【小数点以下切り捨て】",
+  "description.subtotal": "( 請求金額 - 値引 ) + 消費税",
+  "description.subtraction": "( 請求金額 - 値引 ) + 消費税 - 源泉税",
+  "description.total": "( 請求金額 - 値引 ) + 消費税 - 源泉税 + 立替金",
+  "error.discount.greater_than_billing": " > 請求金額",
+  "error.minus": " < 0"
 }

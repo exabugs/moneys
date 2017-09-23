@@ -145,9 +145,12 @@ export function* submitDetail(para) {
     yield put(loadDetailSuccess(result));
     console.log(result);
 
-    yield browserHistory.push(`/modules/${collection}/${detail_new._id}`);
+    // 登録後、詳細画面のまま
+    // yield browserHistory.push(`/modules/${collection}/${detail_new._id}`);
+    // yield put(initialize('detailForm', detail_new));
 
-    yield put(initialize('detailForm', detail_new));
+    // 登録後、一覧画面に遷移
+    yield browserHistory.push(`/modules/${collection}`);
   }
 }
 

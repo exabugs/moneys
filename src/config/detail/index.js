@@ -1,5 +1,6 @@
 import _ from 'underscore';
 import moment from 'moment';
+import numeral from 'numeral';
 
 import claims from './claims.json';
 import customers from './customers.json';
@@ -116,6 +117,8 @@ function outgoing(fieldDef, object) {
     object = item && item[0];
   }
   switch (fieldDef.type) {
+    case 'NumberField':
+      return numeral(object).value();
     case 'Date':
       if (fieldDef.format) {
         return moment(object).format(fieldDef.format);

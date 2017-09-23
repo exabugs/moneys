@@ -3,6 +3,9 @@ import { reduxForm } from 'redux-form';
 import { FormattedMessage } from 'react-intl';
 import RaisedButton from 'material-ui/RaisedButton';
 import { browserHistory } from 'react-router';
+import numeral from 'numeral';
+import _ from 'underscore';
+import { getValue } from '../util';
 
 import EditorParts from './EditorParts';
 
@@ -25,7 +28,7 @@ const Detail = (props) => {
   const { collection } = params; // URL param
 
   const { onReset, onRemove, onSubmitDetail, onSelect, onDrop } = props; // Container
-  const { handleSubmit, submitting } = props;
+  const { handleSubmit, submitting, error } = props;
 
   const fieldDefs = config.modules[collection];
 
@@ -36,6 +39,7 @@ const Detail = (props) => {
     onDrop: (file) => {
       onDrop({ collection, file });
     },
+    error,
   };
 
   return (
@@ -104,7 +108,69 @@ const Detail = (props) => {
   );
 };
 
+const evaluate = (str, values, map) => {
+  const auto = str.replace(/:([a-zA-Z.]+)/g, (all, key) => {
+    switch (map[key].type) {
+      case 'NumberField':
+        return numeral(getValue(values, key)).value();
+      case 'TextField':
+        return getValue(values, key);
+      default:
+        return key;
+    }
+  });
+  return eval(auto);
+};
+
+const onChange = (values, dispatch, props) => {
+  const { change, params } = props;
+
+  const { collection } = params; // URL param
+  const { fieldDefs } = config.modules[collection];
+  const map = _.indexBy(fieldDefs, 'key');
+
+  fieldDefs.forEach(field => {
+    if (field.type === 'NumberField') {
+      if (field.auto) {
+        const value = evaluate(field.auto, values, map);
+        dispatch(change(field.key, value));
+      }
+    }
+  });
+};
+
+const validate = (values, props) => {
+  const { dispatch, change, params } = props;
+
+  const { collection } = params; // URL param
+  const { fieldDefs } = config.modules[collection];
+  const map = _.indexBy(fieldDefs, 'key');
+  const _error = {};
+
+  fieldDefs.forEach(field => {
+    if (field.type === 'NumberField') {
+      if (!getValue(values, field.key)) {
+        dispatch(change(field.key, field.initial ? field.initial : 0));
+      }
+    }
+  });
+
+  fieldDefs.forEach(field => {
+    _.each(field.validate, info => {
+      const valid = evaluate(info.condition, values, map);
+      if (!valid) {
+        _error[field.key] = _error[field.key] || [];
+        _error[field.key].push(info.message);
+      }
+    });
+  });
+
+  return { _error };
+};
+
 export default reduxForm({
   form: 'detailForm',
+  onChange,
+  validate,
   //enableReinitialize: true,
 })(Detail);

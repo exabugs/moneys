@@ -17,6 +17,7 @@ export default {
   items,
 
   unit: {
+    percent: '%',
     port: ' ',
     people: '人',
     yen: '円',

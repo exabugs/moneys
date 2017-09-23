@@ -50,13 +50,7 @@
       "width": 60,
       "type": "Number",
       "align": "right",
-      "key": "subtotal"
-    },
-    {
-      "width": 60,
-      "type": "Number",
-      "align": "right",
-      "key": "subtraction"
+      "key": "discount"
     },
     {
       "width": 60,
