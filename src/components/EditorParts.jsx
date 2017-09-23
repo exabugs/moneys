@@ -201,13 +201,13 @@ const Parts = (props) => {
       );
     case 'Date':
       return (
-        <Field name={name} component={DatePicker} container="inline" mode="landscape" />
+        <Field name={name} component={DatePicker} hintText={fieldDef.key} container="inline" mode="landscape" />
       );
     case 'DateTime':
       return (
         <div>
-          <Field name={name} component={DatePicker} container="inline" mode="landscape" />
-          <Field name={name} component={TimePicker} container="inline" mode="landscape" />
+          <Field name={name} component={DatePicker} hintText={fieldDef.key} container="inline" mode="landscape" />
+          <Field name={name} component={TimePicker} hintText={fieldDef.key} container="inline" mode="landscape" />
         </div>
       );
     case 'AutoComplete':
